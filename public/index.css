@@ -1,0 +1,173 @@
+/* 基础样式 */
+body, html {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: 'Arial', sans-serif;
+    background-color: #f4f4f4;
+    color: #333;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 导航栏样式 */
+.navbar {
+    width: 100%;
+    background-color: #4CAF50;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.navbar a {
+    display: block;
+    color: white;
+    text-align: center;
+    padding: 14px 20px;
+    text-decoration: none;
+    font-size: 16px;
+}
+
+.navbar a:hover {
+    background-color: #45a049;
+}
+
+/* 主体内容样式 */
+.content {
+    flex: 1; 
+    margin-top: 70px; 
+    padding: 20px;
+    overflow-y: auto; 
+    padding-bottom: 70px;
+}
+
+/* 侧边栏样式 */
+.main-menu {
+    width: 200px;
+    position: fixed;
+    margin: 0 auto;
+    background-color: #f2f2f2;
+    box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
+    padding: 0 20px;
+    overflow-y: auto;
+    height: 400px; /* Fixed height */
+    transform: translateX(120px); /* 通过transform偏移 */
+}
+
+.main-menu h2 {
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.main-menu ul {
+    list-style: none;
+    padding: 0;
+}
+
+.main-menu li {
+    margin-bottom: 10px;
+}
+
+.main-menu a {
+    display: block; /* 让链接元素占据整个宽度 */
+    text-decoration: none; /* 去掉下划线 */
+    color: #333; /* 链接文字颜色为深灰 */
+    padding: 10px; /* 添加上下左右的内边距，增加点击区域 */
+    background-color: #fff; /* 链接背景为白色 */
+    border-radius: 5px; /* 圆角效果 */
+    text-align: center; /* 文字居中 */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* 添加阴影，增加立体感 */
+}
+
+.main-menu a:hover {
+    background-color: #4CAF50;
+    color: #fff;
+}
+
+.main-menu a:focus {
+    background-color: #4CAF50; /* 选中时背景颜色加深 */
+    color: #fff; /* 选中时文字颜色为白色 */
+}
+
+/* 浮窗容器样式 */
+.float-window-container {
+    position: relative;
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+    transform: translateX(100px); /* 通过transform偏移 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 500px; /* Fixed height */
+}
+
+/* 浮窗样式 */
+.float-window {
+    display: none;
+    width: 100%;
+    height: 100%; /* Ensures a fixed size */
+    overflow-y: auto; /* 垂直方向出现滚动条 */
+    position: absolute;
+    background-color: #fff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    box-sizing: border-box;
+    transition: opacity 0.3s ease;
+}
+
+/* 当前浮窗显示 */
+.float-window.active {
+    display: block;
+}
+
+/* 按钮样式 */
+.guide-button {
+    position: absolute; /* 绝对定位 */
+    bottom: 20px; /* 距离底部 20px */
+    right: 20px; /* 距离右侧 20px */
+    display: inline-block;
+    margin-top: 20px;
+    padding: 12px 20px;
+    background-color: #4CAF50;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 1em;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(21, 134, 59, 0.3);
+}
+
+.guide-button:hover {
+    background-color: #4CAF50;
+    box-shadow: 0 6px 18px rgba(37, 142, 35, 0.4);
+    transform: translateY(-2px);
+}
+
+/* 动画效果 */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* 页脚样式 */
+.footer {
+    text-align: center;
+    padding: 10px;
+    background-color: #4CAF50;
+    color: white;
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+}

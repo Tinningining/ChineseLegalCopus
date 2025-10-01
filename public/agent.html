@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>法律语料库检索系统</title>
+    <link rel="stylesheet" href="agent.css">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <div class="navbar">
+        <a href="index.html">首页</a>
+        <a href="search.html">搜索</a>
+        <a href="laws.html">法律文献</a>
+        <a href="agent.html" class="active">AI助理</a>
+        <div class="user-info" id="userInfo">
+            <span class="username" id="username"></span>
+            <button class="logout-btn" id="logoutBtn">登出</button>
+        </div>
+    </div>
+
+    <!-- 主应用容器 -->
+    <div class="main-container hidden" id="mainContainer">
+        <!-- 左侧历史记录栏 -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h3 style="margin: 0;">历史对话</h3>
+                <button class="new-chat-btn" id="newChatBtn">新对话</button>
+            </div>
+            <div class="chat-history" id="chatHistory">
+                <!-- 历史对话列表将在这里动态生成 -->
+            </div>
+        </div>
+        
+        <!-- 侧边栏切换按钮 -->
+        <div class="toggle-sidebar" id="toggleSidebar" title="显示/隐藏聊天历史">
+            ≡
+        </div>
+
+        <!-- 主聊天区域 -->
+        <div class="chat-container">
+            <div class="chat-header">
+                法律智能问答系统
+            </div>
+            <div class="chat-messages" id="chatMessages">
+                <!-- 消息将被动态添加 -->
+                <div class="typing-indicator" id="typingIndicator">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+            <!-- 文件上传区域 -->
+            <div class="file-upload-area">
+                <label class="file-upload-button">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M4.5 3a2.5 2.5 0 0 1 5 0v9a1.5 1.5 0 0 1-3 0V5a.5.5 0 0 1 1 0v7a.5.5 0 0 0 1 0V3a1.5 1.5 0 1 0-3 0v9a2.5 2.5 0 0 0 5 0V5a.5.5 0 0 1 1 0v7a3.5 3.5 0 1 1-7 0V3z"/>
+                    </svg>
+                    上传文件
+                    <input type="file" id="fileUpload" class="file-upload-input" multiple>
+                </label>
+                <div class="file-upload-info">支持DOC、DOCX、PDF、TXT等文件格式，单个文件不超过10MB</div>
+                <div class="uploaded-files" id="uploadedFiles"></div>
+            </div>
+            <div class="stream-toggle">
+                <label title="实时显示AI回复过程">
+                    <input type="checkbox" id="streamToggle" checked>
+                    启用流式响应
+                </label>
+            </div>
+            <div class="chat-input">
+                <textarea id="userInput" placeholder="请输入您的法律问题..." onkeypress="handleKeyPress(event)"></textarea>
+                <button id="sendButton">发送</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加模态窗口 -->
+    <div id="aiTypeModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>选择AI类型</h2>
+            <div class="ai-types">
+                <div class="ai-type-option">
+                    <input type="radio" id="publicAI" name="aiType" value="public" checked>
+                    <label for="publicAI">公众服务AI</label>
+                    <p>使用通俗易懂的语言解释法律概念，适合普通用户日常法律问题咨询</p>
+                </div>
+                <div class="ai-type-option">
+                    <input type="radio" id="professionAI" name="aiType" value="profession">
+                    <label for="professionAI">法律专业AI</label>
+                    <p>提供精准的法条引用和专业分析，适合律师、法务等法律从业人员使用</p>
+                </div>
+                <div class="ai-type-option">
+                    <input type="radio" id="researchAI" name="aiType" value="research">
+                    <label for="researchAI">学者研究AI</label>
+                    <p>专注于法律语言学分析和法律文本研究，适合法学研究者和学术工作者</p>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button id="confirmAIType">确认</button>
+                <button id="cancelAIType">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        // DOM 元素
+        // 认证相关
+        
+        const mainContainer = document.getElementById('mainContainer');
+        const userInfo = document.getElementById('userInfo');
+        const usernameDisplay = document.getElementById('username');
+        const logoutBtn = document.getElementById('logoutBtn');
+        
+        // 聊天相关
+        const sidebar = document.getElementById('sidebar');
+        const toggleSidebar = document.getElementById('toggleSidebar');
+        const chatHistory = document.getElementById('chatHistory');
+        const newChatBtn = document.getElementById('newChatBtn');
+        const chatMessages = document.getElementById('chatMessages');
+        const userInput = document.getElementById('userInput');
+        const sendButton = document.getElementById('sendButton');
+        const streamToggle = document.getElementById('streamToggle');
+        const typingIndicator = document.getElementById('typingIndicator');
+
+        // 获取模态窗口元素
+        const modal = document.getElementById('aiTypeModal');
+        const closeBtn = document.getElementsByClassName('close')[0];
+        const confirmBtn = document.getElementById('confirmAIType');
+        const cancelBtn = document.getElementById('cancelAIType');
+        
+        // 状态变量
+        let activeSessionId = null;
+        let currentUser = null;
+        let currentAIType = null;
+
+
+        // 点击新对话按钮时显示模态窗口
+        newChatBtn.addEventListener('click', function() {
+            modal.style.display = 'block';
+        });
+
+        // 点击关闭按钮关闭模态窗口
+        closeBtn.addEventListener('click', function() {
+            modal.style.display = 'none';
+        });
+
+        // 点击取消按钮关闭模态窗口
+        cancelBtn.addEventListener('click', function() {
+            modal.style.display = 'none';
+        });
+
+        // 点击确认按钮创建新对话
+        confirmBtn.addEventListener('click', function() {
+            // 获取选中的AI类型
+            const selectedAIType = document.querySelector('input[name="aiType"]:checked').value;
+
+            // 保存当前AI类型
+            currentAIType = selectedAIType;
+            
+            // 关闭模态窗口
+            modal.style.display = 'none';
+            
+            // 创建新对话
+            createNewChat(selectedAIType);
+
+            // 控制文件上传区域的显示
+            toggleFileUploadVisibility(selectedAIType);
+        });
+
+        // 点击模态窗口外部关闭窗口
+        window.addEventListener('click', function(event) {
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        });
+
+        // 添加一个新函数，用于控制文件上传区域的显示
+        function toggleFileUploadVisibility(aiType) {
+            const fileUploadArea = document.querySelector('.file-upload-area');
+            
+            if (aiType === 'research') {
+                fileUploadArea.style.display = 'block';
+            } else {
+                fileUploadArea.style.display = 'none';
+            }
+        }
+
+        // 全局变量 - 存储上传的文件及其内容
+        let uploadedFilesList = [];
+        let fileContents = {};  // 存储文件名和对应的内容
+
+        // 文件上传处理函数
+        function initFileUpload() {
+            const fileUpload = document.getElementById('fileUpload');
+            const uploadedFiles = document.getElementById('uploadedFiles');
+            
+            if(!fileUpload || !uploadedFiles) return;
+            
+            fileUpload.addEventListener('change', async function(e) {
+                const files = e.target.files;
+                if (!files.length) return;
+                
+                // 检查文件大小限制并读取文件内容
+                for (const file of files) {
+                    if (file.size > 10 * 1024 * 1024) { // 10MB
+                        showNotification(`文件 ${file.name} 超过10MB限制，请选择更小的文件。`, 'error');
+                        continue;
+                    }
+                    
+                    try {
+                        // 读取文件内容
+
+                        const arrayBuffer = await readFileContent(file);
+        
+                        // 正确的方式是传递arrayBuffer
+                        const result = await mammoth.extractRawText({ arrayBuffer });
+                        const text = result.value; // 提取的文本内容
+                        
+                        console.log("提取的文本:", text);
+                        
+                        // 存储文件内容
+                        fileContents[file.name] = text;
+                        
+                        // 添加到上传文件列表
+                        uploadedFilesList.push(file);
+                        
+                        // 创建文件显示元素
+                        const fileElement = document.createElement('div');
+                        fileElement.className = 'uploaded-file';
+                        fileElement.innerHTML = `
+                            <div class="uploaded-file-name">${file.name}</div>
+                            <div class="uploaded-file-size">${formatFileSize(file.size)}</div>
+                            <span class="remove-file" data-filename="${file.name}">×</span>
+                        `;
+                        
+                        // 添加删除文件事件
+                        const removeButton = fileElement.querySelector('.remove-file');
+                        removeButton.addEventListener('click', function(e) {
+                            e.stopPropagation(); // 防止事件冒泡
+                            const filename = this.getAttribute('data-filename');
+                            uploadedFilesList = uploadedFilesList.filter(f => f.name !== filename);
+                            delete fileContents[filename]; // 删除对应的文件内容
+                            fileElement.remove();
+                        });
+                        
+                        uploadedFiles.appendChild(fileElement);
+                    } catch (error) {
+                        console.error(`读取文件 ${file.name} 时出错:`, error);
+                        showNotification(`读取文件 ${file.name} 失败，请重试。`, 'error');
+                    }
+                }
+                
+                // 重置文件输入框，允许再次选择相同文件
+                fileUpload.value = '';
+            });
+        }
+
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes < 1024) {
+                return bytes + ' B';
+            } else if (bytes < 1024 * 1024) {
+                return (bytes / 1024).toFixed(1) + ' KB';
+            } else {
+                return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+            }
+        }
+
+// // 读取文件内容的函数
+// function readFileContent(file) {
+//     return new Promise((resolve, reject) => {
+//         const reader = new FileReader();
+        
+//         reader.onload = function(event) {
+//             resolve(event.target.result);
+//         };
+        
+//         reader.onerror = function(error) {
+//             reject(error);
+//         };
+        
+//         // 根据文件类型选择适当的读取方法
+//         if (file.type === 'application/pdf') {
+//             reader.readAsArrayBuffer(file);
+//         } else if (file.name.endsWith('.docx') || 
+//                   file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+//             // 对于DOCX文件，使用ArrayBuffer
+//             reader.readAsArrayBuffer(file);
+//         } else if (file.name.endsWith('.doc') || 
+//                   file.type === 'application/msword') {
+//             // 对于DOC文件，使用ArrayBuffer
+//             reader.readAsArrayBuffer(file);
+//         } else if (file.type.includes('text') || 
+//                   file.name.endsWith('.txt')) {
+//             // 纯文本文件
+//             reader.readAsText(file);
+//         } else {
+//             // 默认读取为ArrayBuffer以支持更多格式
+//             reader.readAsArrayBuffer(file);
+//         }
+//     });
+// }
+
+function readFileContent(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        
+        reader.onload = function(event) {
+            resolve(event.target.result);
+        };
+        
+        reader.onerror = function(error) {
+            reject(error);
+        };
+        
+        // 对于DOCX文件，我们总是使用ArrayBuffer
+        reader.readAsArrayBuffer(file);
+    });
+}
+        // 通知函数
+        function showNotification(message, type = 'info') {
+            // 如果存在通知容器则使用，否则创建一个
+            let notificationContainer = document.querySelector('.notification-container');
+            if (!notificationContainer) {
+                notificationContainer = document.createElement('div');
+                notificationContainer.className = 'notification-container';
+                document.body.appendChild(notificationContainer);
+            }
+            
+            // 创建新通知
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            
+            // 添加到容器
+            notificationContainer.appendChild(notification);
+            
+            // 自动消失
+            setTimeout(() => {
+                notification.classList.add('fade-out');
+                setTimeout(() => {
+                    notification.remove();
+                }, 500);
+            }, 3000);
+        }
+        
+        // 初始化应用
+        async function initApp() {
+            // 检查是否已登录
+            try {
+                const response = await fetch('/api/user', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'include' // 确保包含cookies
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    currentUser = data.user;
+                    
+                    // 存储token到localStorage用于后备方案
+                    if (data.token) {
+                        localStorage.setItem('authToken', data.token);
+                    }
+                    
+                    showMainApp();
+                    loadChatSessions();
+                    initFileUpload(); // 添加这一行来初始化文件上传功能
+                } else {
+                    // 重定向到登录页面
+                    window.location.href = 'login.html';
+                }
+            } catch (error) {
+                console.error('认证检查错误:', error);
+                // 重定向到登录页面
+                window.location.href = 'login.html';
+            }
+            
+            setupEventListeners();
+        }
+        
+        // 设置事件监听器
+        function setupEventListeners() {
+            // 登出按钮
+            logoutBtn.addEventListener('click', handleLogout);
+            
+            // 侧边栏切换
+            toggleSidebar.addEventListener('click', () => {
+                sidebar.classList.toggle('sidebar-collapsed');
+                toggleSidebar.classList.toggle('collapsed');
+                
+                // 保存侧边栏状态到本地存储
+                localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('sidebar-collapsed'));
+            });
+            
+            // 发送消息
+            sendButton.addEventListener('click', function() {
+                if (userInput.value.trim() !== '') {
+                    this.disabled = true;
+                    this.innerHTML = '发送中...';
+                    sendMessage().finally(() => {
+                        this.disabled = false;
+                        this.innerHTML = '发送';
+                    });
+                }
+            });
+            
+            // 自动调整文本区域高度
+            userInput.addEventListener('input', function() {
+                // 重置高度以获取正确的scrollHeight
+                this.style.height = 'auto';
+                
+                // 计算新高度 (有最小和最大限制)
+                const newHeight = Math.min(Math.max(40, this.scrollHeight), 120);
+                this.style.height = newHeight + 'px';
+            });
+        }
+        
+        // 处理用户登出
+        async function handleLogout() {
+            try {
+                // 清除localStorage中的token
+                localStorage.removeItem('authToken');
+                
+                await fetch('/api/auth/logout', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                // 重置状态
+                currentUser = null;
+                activeSessionId = null;
+                
+                // 重定向到登录页面
+                window.location.href = 'login.html';
+            } catch (error) {
+                console.error('登出错误:', error);
+                alert('登出失败，请稍后再试');
+            }
+        }
+        
+        // 显示主应用
+        function showMainApp() {
+            mainContainer.classList.remove('hidden');
+            usernameDisplay.textContent = currentUser.username;
+            restoreSidebarState();
+        }
+        
+        // 初始化时恢复侧边栏状态
+        function restoreSidebarState() {
+            const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+            if (isCollapsed) {
+                sidebar.classList.add('sidebar-collapsed');
+                toggleSidebar.classList.add('collapsed');
+            }
+        }
+        
+        // 获取认证头信息
+        function getAuthHeaders() {
+            const token = localStorage.getItem('authToken');
+            const headers = {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            };
+            
+            if (token) {
+                headers['Authorization'] = 'Bearer ' + token;
+            }
+            
+            return headers;
+        }
+        
+        // 加载用户聊天会话
+        async function loadChatSessions() {
+            try {
+                const response = await fetch('/api/chat/sessions', {
+                    method: 'GET',
+                    headers: getAuthHeaders(),
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to load chat sessions');
+                }
+                
+                const data = await response.json();
+                console.log(data)
+                renderChatHistorySidebar(data.sessions);
+                
+                // 如果有会话，加载第一个会话
+                if (data.sessions.length > 0) {
+                    activeSessionId = data.sessions[0].id;
+                    loadChatSession(activeSessionId);
+                } else {
+                    // 如果没有会话，创建一个新会话
+                    // await createNewChat();
+                    modal.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('加载会话错误:', error);
+                
+                // 如果认证失败，重新显示登录表单
+                if (error.message && error.message.includes('401')) {
+                    alert('您的登录已过期，请重新登录');
+                    window.location.href = 'login.html';
+                }
+            }
+        }
+        
+        // 渲染侧边栏的聊天历史
+        function renderChatHistorySidebar(sessions) {
+            chatHistory.innerHTML = '';
+            
+            sessions.forEach(session => {
+                const chatItem = document.createElement('div');
+                chatItem.className = 'chat-item' + (session.id.toString() === activeSessionId ? ' active' : '');
+                chatItem.dataset.id = session.id;
+                chatItem.dataset.aiType = session.ai_type; // 添加 AI 类型数据属性
+                
+                const titleSpan = document.createElement('span');
+                titleSpan.className = 'chat-item-title';
+                titleSpan.textContent = session.title || '新对话';
+                
+                const aiTypeSpan = document.createElement('span');
+                aiTypeSpan.className = 'chat-item-ai-type';
+                aiTypeSpan.textContent = session.ai_type || '默认AI'; // 显示 AI 类型
+                
+                const deleteBtn = document.createElement('span');
+                deleteBtn.className = 'delete-chat';
+                deleteBtn.textContent = '×';
+                deleteBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    deleteChat(session.id);
+                };
+                
+                chatItem.appendChild(titleSpan);
+                chatItem.appendChild(aiTypeSpan); // 添加 AI 类型信息
+                chatItem.appendChild(deleteBtn);
+                
+                chatItem.addEventListener('click', () => {
+                    switchChat(session.id);
+                });
+                
+                chatHistory.appendChild(chatItem);
+            });
+        }
+
+
+        // 创建聊天会话函数
+        async function createNewChat(aiType = 'general') {
+            try {
+                // 根据AI类型设置会话标题
+                let title;
+                switch(aiType) {
+                    case 'research':
+                        title = '法律语言学研究对话';
+                        break;
+                    case 'profession':
+                        title = '专业法律咨询对话';
+                        break;
+                    default: // public
+                        title = '公众法律咨询对话';
+                }
+                
+                const response = await fetch('/api/chat/sessions', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ 
+                        title: title,
+                        aiType: aiType 
+                    }),
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to create new chat');
+                }
+                
+                const data = await response.json();
+                
+                // 重新加载会话列表
+                await loadChatSessions();
+                
+                // 切换到新会话
+                switchChat(data.session.id);
+                
+                return data.session;
+            } catch (error) {
+                console.error('创建会话错误:', error);
+                alert('创建新对话失败，请稍后再试');
+                
+                // 如果认证失败，重新显示登录表单
+                if (error.message && error.message.includes('401')) {
+                    alert('您的登录已过期，请重新登录');
+                    window.location.href = 'login.html';
+                }
+            }
+        }
+        
+        // 切换到指定聊天会话
+        function switchChat(id) {
+            activeSessionId = id.toString();
+            
+            // 更新侧边栏选中状态
+            document.querySelectorAll('.chat-item').forEach(item => {
+                if (item.dataset.id === activeSessionId) {
+                    item.classList.add('active');
+                    // 从数据属性中获取AI类型
+                    if (item.dataset.aiType) {
+                        currentAIType = item.dataset.aiType;
+                        toggleFileUploadVisibility(currentAIType);
+                    }
+                } else {
+                    item.classList.remove('active');
+                }
+            });
+            
+            // 加载会话消息
+            loadChatSession(activeSessionId);
+        }
+        
+        // 加载指定聊天会话的消息
+        async function loadChatSession(sessionId) {
+            try {
+                const response = await fetch(`/api/chat/sessions/${sessionId}/messages`, {
+                    method: 'GET',
+                    headers: getAuthHeaders(),
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to load chat messages');
+                }
+                
+                const data = await response.json();
+
+                // 获取会话信息以确定AI类型
+                const sessionResponse = await fetch(`/api/chat/sessions/${sessionId}`, {
+                    method: 'GET',
+                    headers: getAuthHeaders(),
+                    credentials: 'include'
+                });
+                
+                if (sessionResponse.ok) {
+                    const sessionData = await sessionResponse.json();
+                    // 更新当前AI类型
+                    currentAIType = sessionData.session.aiType;
+                    // 控制文件上传区域的显示
+                    toggleFileUploadVisibility(currentAIType);
+                }
+                
+                // 清空聊天区域，但先移除输入指示器
+                if (chatMessages.contains(typingIndicator)) {
+                    chatMessages.removeChild(typingIndicator);
+                }
+                chatMessages.innerHTML = '';
+                
+                // 添加消息历史，使用服务器返回的时间戳
+                data.messages.forEach(msg => {
+                    // 将created_at字符串转换为Date对象
+                    const messageTime = new Date(msg.created_at);
+                    // 传递消息创建时间作为时间戳
+                    addMessage(msg.content, msg.role, messageTime);
+                });
+                
+                // 添加输入指示器
+                chatMessages.appendChild(typingIndicator);
+                typingIndicator.style.display = 'none';
+                
+                // 滚动到底部
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            } catch (error) {
+                console.error('加载消息错误:', error);
+                
+                // 如果认证失败，重新显示登录表单
+                if (error.message && error.message.includes('401')) {
+                    alert('您的登录已过期，请重新登录');
+                    window.location.href = 'login.html';
+                }
+            }
+        }
+        
+        // 删除聊天会话
+        async function deleteChat(id) {
+            if (confirm('确定要删除这个对话吗？')) {
+                try {
+                    const response = await fetch(`/api/chat/sessions/${id}`, {
+                        method: 'DELETE',
+                        headers: getAuthHeaders(),
+                        credentials: 'include'
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Failed to delete chat session');
+                    }
+                    
+                    // 重新加载会话列表
+                    await loadChatSessions();
+                } catch (error) {
+                    console.error('删除会话错误:', error);
+                    alert('删除对话失败，请稍后再试');
+                    
+                    // 如果认证失败，重新显示登录表单
+                    if (error.message && error.message.includes('401')) {
+                        alert('您的登录已过期，请重新登录');
+                        window.location.href = 'login.html';
+                    }
+                }
+            }
+        }
+        
+        // 更新会话标题
+        async function updateSessionTitle(id, title) {
+            try {
+                const response = await fetch(`/api/chat/sessions/${id}`, {
+                    method: 'PUT',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ title }),
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to update chat title');
+                }
+                
+                // 重新加载会话列表
+                await loadChatSessions();
+            } catch (error) {
+                console.error('更新标题错误:', error);
+                
+                // 如果认证失败，重新显示登录表单
+                if (error.message && error.message.includes('401')) {
+                    alert('您的登录已过期，请重新登录');
+                    window.location.href = 'login.html';
+                }
+            }
+        }
+        
+        // 发送消息处理函数 - 修改以包含文件内容
+        async function sendMessage() {
+            const userInputText = userInput.value.trim();
+            const hasFiles = uploadedFilesList.length > 0;
+            
+            // 如果没有输入文字且没有上传文件，则不发送消息
+            if (!userInputText && !hasFiles || !activeSessionId) return;
+            
+            // 准备完整消息内容
+            let fullMessage = "";
+            
+            // 添加文件内容到消息
+            if (hasFiles) {
+                for (const file of uploadedFilesList) {
+                    const content = fileContents[file.name] || "";
+                    fullMessage += `[文件: ${file.name}]\n${content}\n\n`;
+                }
+            }
+            
+            // 添加用户输入到消息
+            if (userInputText) {
+                if (fullMessage) {
+                    fullMessage += "[用户输入:\n]";
+                }
+                fullMessage += userInputText;
+            }
+            
+            // 在UI中显示用户消息（可以选择是否显示完整内容或仅显示摘要）
+            const displayMessage = hasFiles ? 
+                `${userInputText || ""} [包含${uploadedFilesList.length}个文件]` : 
+                fullMessage;
+            
+            addMessage(displayMessage, 'user');
+            userInput.value = '';
+            userInput.style.height = '40px'; // 重置文本区域高度
+            
+            // 显示输入中指示器
+            typingIndicator.style.display = 'block';
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            // 获取当前会话的所有消息用于API请求
+            const allMessages = [];
+            document.querySelectorAll('.user-message, .bot-message').forEach(el => {
+                const role = el.classList.contains('user-message') ? 'user' : 'assistant';
+                // 获取消息内容容器的文本，而不是整个消息元素的文本
+                const content = el.querySelector('.message-content').textContent;
+                allMessages.push({ role, content });
+            });
+            
+            // 替换最后一条用户消息为完整消息（包含文件内容）
+            if (allMessages.length > 0 && allMessages[allMessages.length - 1].role === 'user') {
+                allMessages[allMessages.length - 1].content = fullMessage;
+            }
+            
+            try {
+                // 如果是第一条用户消息，使用它来更新会话标题
+                const userMessages = document.querySelectorAll('.user-message');
+                if (userMessages.length === 1) {
+                    // 使用显示消息的摘要作为标题
+                    const titleText = userInputText || `文件上传: ${uploadedFilesList[0]?.name || "未命名文件"}`;
+                    const firstUserMessage = titleText.substring(0, 20) + (titleText.length > 20 ? '...' : '');
+                    await updateSessionTitle(activeSessionId, firstUserMessage);
+                }
+                
+                if (streamToggle.checked) {
+                    // 使用流式响应
+                    await handleStreamResponse(allMessages);
+                } else {
+                    // 使用普通响应
+                    await handleStandardResponse(allMessages);
+                }
+                
+                // 消息发送后清空文件列表和内容
+                uploadedFilesList = [];
+                fileContents = {};
+                const uploadedFilesElement = document.getElementById('uploadedFiles');
+                if (uploadedFilesElement) {
+                    uploadedFilesElement.innerHTML = '';
+                }
+            } catch (error) {
+                console.error('请求错误:', error);
+                const errorMessage = '抱歉，发生了错误。请稍后再试。';
+                addMessage(errorMessage, 'bot');
+                
+                // 如果认证失败，重新显示登录表单
+                if (error.message && error.message.includes('401')) {
+                    alert('您的登录已过期，请重新登录');
+                    window.location.href = 'login.html';
+                }
+            } finally {
+                // 隐藏输入中指示器
+                typingIndicator.style.display = 'none';
+            }
+        }
+                
+                // 处理标准响应
+        async function handleStandardResponse(messages) {
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({
+                    messages,
+                    sessionId: activeSessionId
+                }),
+                credentials: 'include'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            const botMessage = data.message;
+            
+            // 显示机器人消息（通过addMessage函数会自动添加时间戳）
+            addMessage(botMessage, 'bot');
+        }
+
+        // 处理流式响应
+        async function handleStreamResponse(messages) {
+            const response = await fetch('/api/chat/stream', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({
+                    messages,
+                    sessionId: activeSessionId
+                }),
+                credentials: 'include'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            // 创建一个新的消息元素用于流式内容
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message bot-message';
+            
+            // 创建内容容器
+            const messageContent = document.createElement('div');
+            messageContent.className = 'message-content';
+            messageElement.appendChild(messageContent);
+            
+            // 创建时间戳元素
+            const timestamp = document.createElement('div');
+            timestamp.className = 'message-timestamp';
+            
+            // 获取当前时间并格式化为年月日 时:分
+            const now = new Date();
+            const timeString = now.toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false // 使用24小时制
+            }).replace(/\//g, '-'); // 将可能的斜杠替换为连字符
+            
+            timestamp.textContent = timeString;
+            
+            // 将时间戳添加到消息元素
+            messageElement.appendChild(timestamp);
+            
+            // 检查typingIndicator是否在chatMessages内部
+            if (chatMessages.contains(typingIndicator)) {
+                chatMessages.insertBefore(messageElement, typingIndicator);
+            } else {
+                chatMessages.appendChild(messageElement);
+            }
+            
+            // 隐藏输入中指示器
+            typingIndicator.style.display = 'none';
+            
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder("utf-8");
+            let streamContent = '';
+            
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                
+                const chunk = decoder.decode(value, { stream: true });
+                const lines = chunk.split('\n\n');
+                
+                for (const line of lines) {
+                    if (line.startsWith('data:')) {
+                        const data = line.substring(5).trim();
+                        
+                        if (data === '[DONE]') {
+                            break;
+                        }
+                        
+                        try {
+                            const parsedData = JSON.parse(data);
+                            if (parsedData.content) {
+                                streamContent += parsedData.content;
+                                // 使用formatMarkdown处理累积的响应，支持Markdown格式
+                                messageContent.innerHTML = formatMarkdown(streamContent);
+                                chatMessages.scrollTop = chatMessages.scrollHeight;
+                            }
+                        } catch (error) {
+                            console.error('解析错误:', error);
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 添加消息到聊天窗口
+        function addMessage(content, sender, messageTime = null) {
+            const messageElement = document.createElement('div');
+            messageElement.className = `message ${sender === 'user' ? 'user-message' : 'bot-message'}`;
+            
+            // 创建时间戳元素
+            const timestamp = document.createElement('div');
+            timestamp.className = 'message-timestamp';
+            
+            // 使用传入的时间或当前时间
+            const time = messageTime || new Date();
+            
+            // 格式化为年月日 时:分
+            const timeString = time.toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false // 使用24小时制
+            }).replace(/\//g, '-'); // 将可能的斜杠替换为连字符
+            
+            timestamp.textContent = timeString;
+            
+            // 创建内容容器
+            const messageContent = document.createElement('div');
+            messageContent.className = 'message-content';
+            
+            // 处理Markdown格式
+            const formattedContent = formatMarkdown(content);
+            
+            // 设置内容
+            messageContent.innerHTML = formattedContent;
+            
+            // 将内容容器和时间戳添加到消息元素
+            messageElement.appendChild(messageContent);
+            messageElement.appendChild(timestamp);
+            
+            // 检查typingIndicator是否在chatMessages内部
+            if (chatMessages.contains(typingIndicator)) {
+                // 确保添加到输入指示器之前
+                chatMessages.insertBefore(messageElement, typingIndicator);
+            } else {
+                // 如果不在，直接添加到聊天消息区域的末尾
+                chatMessages.appendChild(messageElement);
+            }
+            
+            // 平滑滚动到底部
+            chatMessages.scrollTo({
+                top: chatMessages.scrollHeight,
+                behavior: 'smooth'
+            });
+            
+            return messageElement;
+        }
+
+        // 格式化Markdown为HTML
+        function formatMarkdown(text) {
+            // 先进行HTML转义，防止XSS攻击
+            let formatted = text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+            
+            // 处理代码块 (```code```)
+            formatted = formatted.replace(/```([\s\S]*?)```/g, function(match, p1) {
+                return '<pre><code>' + p1.trim() + '</code></pre>';
+            });
+            
+            // 处理行内代码 (`code`)
+            formatted = formatted.replace(/`([^`]+)`/g, '<code>$1</code>');
+            
+            // 处理粗体 (**text**)
+            formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            
+            // 处理斜体 (*text*)
+            formatted = formatted.replace(/\*(.*?)\*/g, '<em>$1</em>');
+            
+            // 处理链接 [text](url)
+            formatted = formatted.replace(/\[(.*?)\]\((.*?)\)/g, 
+                '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+            
+            // 先将文本分割成行
+            const lines = formatted.split('\n');
+            let inList = false;
+            let listType = '';
+            let listItems = [];
+            let result = [];
+            
+            // 处理连续的列表问题
+            let continuousList = false;
+            let listStartValue = 1; // 记录列表起始值
+            
+            // 逐行处理
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                
+                // 检测有序列表项 (1. text)
+                const orderedMatch = line.match(/^\s*(\d+)\.\s+(.*?)$/);
+                // 检测无序列表项 (- text 或 * text 或 + text)
+                const unorderedMatch = line.match(/^\s*[-*+]\s+(.*?)$/);
+                
+                if (orderedMatch) {
+                    const itemNumber = parseInt(orderedMatch[1], 10); // 获取当前项的编号
+                    
+                    if (!inList || listType !== 'ol') {
+                        // 开始新的有序列表
+                        if (inList) {
+                            // 结束之前的列表
+                            if (listType === 'ul') {
+                                result.push('<ul>' + listItems.join('') + '</ul>');
+                            } else {
+                                result.push('<ol>' + listItems.join('') + '</ol>');
+                            }
+                            listItems = [];
+                        }
+                        inList = true;
+                        listType = 'ol';
+                        listStartValue = itemNumber; // 记录列表的起始编号
+                    }
+                    // 添加列表项
+                    listItems.push('<li>' + orderedMatch[2] + '</li>');
+                } else if (unorderedMatch) {
+                    if (!inList || listType !== 'ul') {
+                        // 开始新的无序列表
+                        if (inList) {
+                            // 结束之前的列表
+                            if (listType === 'ul') {
+                                result.push('<ul>' + listItems.join('') + '</ul>');
+                            } else {
+                                result.push('<ol start="' + listStartValue + '">' + listItems.join('') + '</ol>');
+                            }
+                            listItems = [];
+                        }
+                        inList = true;
+                        listType = 'ul';
+                    }
+                    // 添加列表项
+                    listItems.push('<li>' + unorderedMatch[1] + '</li>');
+                } else if (line.trim() === '') {
+                    // 空行处理
+                    if (inList) {
+                        // 不立即结束列表，先标记可能的列表连续性
+                        continuousList = true;
+                        
+                        // 暂存当前列表
+                        if (listType === 'ul') {
+                            result.push('<ul>' + listItems.join('') + '</ul>');
+                        } else {
+                            result.push('<ol start="' + listStartValue + '">' + listItems.join('') + '</ol>');
+                        }
+                        listItems = [];
+                        inList = false;
+                    }
+                    result.push(''); // 保留空行
+                } else {
+                    // 非列表行
+                    if (inList) {
+                        // 结束当前列表
+                        if (listType === 'ul') {
+                            result.push('<ul>' + listItems.join('') + '</ul>');
+                        } else {
+                            result.push('<ol start="' + listStartValue + '">' + listItems.join('') + '</ol>');
+                        }
+                        listItems = [];
+                        inList = false;
+                        continuousList = false;
+                    }
+                    // 处理标题 (# text)
+                    if (line.match(/^#{1}\s+(.*?)$/)) {
+                        result.push('<h1>' + line.replace(/^#{1}\s+/, '') + '</h1>');
+                    } else if (line.match(/^#{2}\s+(.*?)$/)) {
+                        result.push('<h2>' + line.replace(/^#{2}\s+/, '') + '</h2>');
+                    } else if (line.match(/^#{3}\s+(.*?)$/)) {
+                        result.push('<h3>' + line.replace(/^#{3}\s+/, '') + '</h3>');
+                    }
+                    // 处理水平线 (---)
+                    else if (line.match(/^\s*[\-=_]{3,}\s*$/)) {
+                        result.push('<hr />');
+                    } else {
+                        // 普通行
+                        result.push(line);
+                    }
+                    continuousList = false;
+                }
+            }
+            
+            // 处理最后一个列表
+            if (inList) {
+                if (listType === 'ul') {
+                    result.push('<ul>' + listItems.join('') + '</ul>');
+                } else {
+                    result.push('<ol start="' + listStartValue + '">' + listItems.join('') + '</ol>');
+                }
+            }
+            
+            // 重新组合文本并处理换行符
+            // 过滤掉空行，使输出更紧凑
+            let filteredResult = result.filter(line => line !== '');
+            
+            // 处理段落：连续的文本行应该合并为一个段落
+            let paragraphs = [];
+            let currentParagraph = [];
+            
+            for (let i = 0; i < filteredResult.length; i++) {
+                const line = filteredResult[i];
+                // 检查是否是HTML标签行
+                const isHtmlTag = line.startsWith('<') && line.endsWith('>');
+                
+                if (isHtmlTag || line.trim() === '') {
+                    // 如果当前有积累的段落文本，先处理它
+                    if (currentParagraph.length > 0) {
+                        paragraphs.push('<p>' + currentParagraph.join(' ') + '</p>');
+                        currentParagraph = [];
+                    }
+                    // 添加HTML标签
+                    if (line.trim() !== '') {
+                        paragraphs.push(line);
+                    }
+                } else {
+                    // 普通文本行，添加到当前段落
+                    currentParagraph.push(line);
+                }
+            }
+            
+            // 处理最后一个段落
+            if (currentParagraph.length > 0) {
+                paragraphs.push('<p>' + currentParagraph.join(' ') + '</p>');
+            }
+            
+            formatted = paragraphs.join('');
+            
+            return formatted;
+        }
+        
+        // 键盘事件处理
+        function handleKeyPress(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+        
+    // 初始化应用
+    document.addEventListener('DOMContentLoaded', function() {
+        const fileUploadArea = document.querySelector('.file-upload-area');
+        if (fileUploadArea) {
+            fileUploadArea.style.display = 'none';
+        }
+        initApp();
+    });
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.0/mammoth.browser.min.js"></script>
+</body>
+</html>

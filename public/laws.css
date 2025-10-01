@@ -1,0 +1,107 @@
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f4f4f4;
+    color: #333;
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 导航栏样式 */
+.navbar {
+    width: 100%;
+    background-color: #4CAF50;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.navbar a {
+    display: block;
+    color: white;
+    text-align: center;
+    padding: 14px 20px;
+    text-decoration: none;
+    font-size: 16px;
+}
+
+.navbar a:hover {
+    background-color: #45a049;
+}
+
+/* 内容区域样式 */
+.content {
+    margin-left: 220px; /* Adjust to match filters' width */
+    margin-top: 50px; /* Adjust according to your navbar height */
+    display: flex;
+    padding: 20px;
+    align-items: flex-start;
+}
+
+/* 筛选区样式 */
+.filters {
+    position: fixed;
+    top: 50px; /* Adjust according to your navbar height */
+    left: 0;
+    width: 200px;
+    height: calc(100vh - 50px); /* Adjust according to your navbar height */
+    padding: 10px;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    overflow-y: auto;
+    margin-right: 20px; /* No effect due to position: fixed; removed */
+}
+
+.filters label {
+    font-size: 14px;
+    display: block;
+    margin-top: 3px;
+}
+
+.filters select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    margin-top: 8px;
+}
+
+.filters input {
+    width: 182px;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    margin-top: 8px;
+}
+
+/* 文献展示区样式 */
+.document-list {
+    flex-grow: 1;
+}
+
+.document {
+    background-color: white;
+    margin-bottom: 10px;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+}
+
+.document h3 {
+    margin: 0;
+    font-size: 12px;
+}
+
+.document:hover {
+    background-color: #f0f0f0;
+}

@@ -1,0 +1,32 @@
+{
+  "name": "law",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "d3": "^7.9.0",
+    "d3-sankey": "^0.12.3",
+    "dotenv": "^16.4.7",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.13.0",
+    "openai": "^4.86.2",
+    "pm2": "^5.4.3",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7",
+    "topojson-client": "^3.1.0"
+  },
+  "devDependencies": {
+    "parcel-bundler": "^1.12.5"
+  }
+}

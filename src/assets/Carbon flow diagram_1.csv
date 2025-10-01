@@ -1,0 +1,11 @@
+name,category
+煤炭,rawCoal
+石油,crudeOil
+天然气,naturalGas
+第一产业,thePrimaryIndustry
+第二产业,theSecondaryIndustry
+第三产业,theTertiaryIndustry
+居民生活,residentLife
+火力发电,thermalPowerGeneration
+供热,heating
+碳排放,carbonEmissions

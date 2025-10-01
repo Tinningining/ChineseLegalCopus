@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>法律语料库检索系统</title>
+    <link rel="stylesheet" href="index.css">
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+    </style>
+</head>
+<body>
+    <!-- 导航栏 -->
+    <div class="navbar">
+        <a href="index.html">首页</a>
+        <a href="search.html">搜索</a>
+        <a href="laws.html">法律文献</a>
+        <a href="login.html">AI助理</a>
+    </div>
+
+    <div class="content">
+        <div class="main-menu">
+            <h2>使用须知</h2>
+            <ul>
+                <li><a href="#" onclick="showWindow('intro')">系统介绍</a></li>
+                <li><a href="#" onclick="showWindow('pos-tagging')">词性标注</a></li>
+                <li><a href="#" onclick="showWindow('dependency-parsing')">依存关系</a></li>
+                <li><a href="#" onclick="showWindow('doc-categories')">法律文件分类</a></li>
+                <li><a href="#" onclick="showWindow('phrase-search')">短语检索格式</a></li>
+                <li><a href="#" onclick="showWindow('dependency-search')">依存关系检索格式</a></li>
+                <!-- <li><a class="start-search" href="#" onclick="window.location.href='search.html'">立即检索法律文献</a></li> -->
+                <!-- <button class="guide-button" onclick="window.location.href='search.html'">立即检索法律文献</button> -->
+            </ul>
+        </div>
+    
+        <div class="float-window-container">
+            <!-- 浮窗模块 -->
+            <div class="float-window active" id="intro">
+                <section class="intro">
+                    <h1>欢迎访问法律语料库检索系统！</h1>
+                    <p>本系统提供全面的法律文献检索服务，帮助您快速定位所需的法律条款和文件。</p>
+                    <p>在使用本系统前，须认真阅读有关介绍，掌握语料库完整的检索功能。</p>
+                    <button class="guide-button" onclick="window.location.href='search.html'">立即检索法律文献</button>
+                </section>
+            </div>
+    
+            <div class="float-window" id="pos-tagging">
+                <section class="pos-tagging">
+                    <h2>词性标注</h2>
+                    <p>在语料库中，词性标注是对文本中的每个词进行分类。精确的词性标注有助于提高检索的准确性和语义分析效果。本语料库所包含的词性有：</p>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>词性</th>
+                                <th>英文全称</th>
+                                <th>示例</th>
+                                <th>解释</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>a</td><td>adjective</td><td>美丽</td><td>形容词，用于描述名词的性质或状态。</td></tr>
+                            <tr><td>b</td><td>other noun-modifier</td><td>大型, 西式</td><td>其他修饰名词的成分，如定语成分。</td></tr>
+                            <tr><td>c</td><td>conjunction</td><td>和, 虽然</td><td>连词，用于连接词、短语或句子。</td></tr>
+                            <tr><td>d</td><td>adverb</td><td>很</td><td>副词，用于修饰动词、形容词或其他副词。</td></tr>
+                            <tr><td>e</td><td>exclamation</td><td>哎</td><td>叹词，用于表达感叹、呼唤等情感。</td></tr>
+                            <tr><td>g</td><td>morpheme</td><td>茨, 甥</td><td>语素，最小的意义单位，通常是词根。</td></tr>
+                            <tr><td>h</td><td>prefix</td><td>阿, 伪</td><td>前缀，添加在词前，用于构成新词。</td></tr>
+                            <tr><td>i</td><td>idiom</td><td>百花齐放</td><td>成语，固定短语结构，表示特定含义。</td></tr>
+                            <tr><td>j</td><td>abbreviation</td><td>公检法</td><td>缩写词，通常由几个词的首字母组合。</td></tr>
+                            <tr><td>k</td><td>suffix</td><td>界, 率</td><td>后缀，添加在词尾，用于构成新词。</td></tr>
+                            <tr><td>m</td><td>number</td><td>一, 第一</td><td>数词，用于表示数量或序列。</td></tr>
+                            <tr><td>n</td><td>general noun</td><td>苹果</td><td>普通名词，用于指代物品、事物等。</td></tr>
+                            <tr><td>nd</td><td>direction noun</td><td>右侧</td><td>方位名词，表示方向或位置。</td></tr>
+                            <tr><td>nh</td><td>person name</td><td>杜甫, 汤姆</td><td>人名，用于表示人。</td></tr>
+                            <tr><td>ni</td><td>organization name</td><td>保险公司</td><td>机构名，如公司、组织等名称。</td></tr>
+                            <tr><td>nl</td><td>location noun</td><td>城郊</td><td>地点名词，用于指代具体的地点。</td></tr>
+                            <tr><td>ns</td><td>geographical name</td><td>北京</td><td>地理名称，通常是地名。</td></tr>
+                            <tr><td>nt</td><td>temporal noun</td><td>近日, 明代</td><td>时间名词，表示时间概念。</td></tr>
+                            <tr><td>nz</td><td>other proper noun</td><td>诺贝尔奖</td><td>其他专有名词，如奖项、品牌等。</td></tr>
+                            <tr><td>o</td><td>onomatopoeia</td><td>哗啦</td><td>拟声词，模仿声音的词。</td></tr>
+                            <tr><td>p</td><td>preposition</td><td>在, 把</td><td>介词，用于连接名词与其他成分。</td></tr>
+                            <tr><td>q</td><td>quantity</td><td>个</td><td>量词，用于表示物品的单位数量。</td></tr>
+                            <tr><td>r</td><td>pronoun</td><td>我们</td><td>代词，用于代替名词。</td></tr>
+                            <tr><td>u</td><td>auxiliary</td><td>的, 地</td><td>助词，辅助构成句子结构。</td></tr>
+                            <tr><td>v</td><td>verb</td><td>跑, 学习</td><td>动词，表示动作、行为或状态。</td></tr>
+                            <tr><td>wp</td><td>punctuation</td><td>，。！</td><td>标点符号，用于句子的分隔和表示语气。</td></tr>
+                            <tr><td>ws</td><td>foreign words</td><td>CPU</td><td>外来词或外文缩写。</td></tr>
+                            <tr><td>x</td><td>non-lexeme</td><td>莓, 翱</td><td>非词素，无法单独构成意义的单位。</td></tr>
+                        </tbody>
+                    </table>
+                </section>
+            </div>
+
+            <div class="float-window" id="dependency-parsing">
+                <section class="dependency-parsing">
+                    <h2>依存关系</h2>
+                    <p>在自然语言处理中，依存关系用于描述句子中词语之间的语法依赖关系。准确的依存分析有助于语义理解和句法分析。本系统所定义的依存关系包括：</p>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>关系类型</th>
+                                <th>Tag</th>
+                                <th>描述</th>
+                                <th>示例</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>主谓关系</td><td>SBV</td><td>subject-verb</td><td>我送她一束花 (我 &lt;-- 送)</td></tr>
+                            <tr><td>动宾关系</td><td>VOB</td><td>直接宾语，verb-object</td><td>我送她一束花 (送 --&gt; 花)</td></tr>
+                            <tr><td>间宾关系</td><td>IOB</td><td>间接宾语，indirect-object</td><td>我送她一束花 (送 --&gt; 她)</td></tr>
+                            <tr><td>前置宾语</td><td>FOB</td><td>前置宾语，fronting-object</td><td>他什么书都读 (书 &lt;-- 读)</td></tr>
+                            <tr><td>兼语</td><td>DBL</td><td>double</td><td>他请我吃饭 (请 --&gt; 我)</td></tr>
+                            <tr><td>定中关系</td><td>ATT</td><td>attribute</td><td>红苹果 (红 &lt;-- 苹果)</td></tr>
+                            <tr><td>状中结构</td><td>ADV</td><td>adverbial</td><td>非常美丽 (非常 &lt;-- 美丽)</td></tr>
+                            <tr><td>动补结构</td><td>CMP</td><td>complement</td><td>做完了作业 (做 --&gt; 完)</td></tr>
+                            <tr><td>并列关系</td><td>COO</td><td>coordinate</td><td>大山和大海 (大山 --&gt; 大海)</td></tr>
+                            <tr><td>介宾关系</td><td>POB</td><td>preposition-object</td><td>在贸易区内 (在 --&gt; 内)</td></tr>
+                            <tr><td>左附加关系</td><td>LAD</td><td>left adjunct</td><td>大山和大海 (和 &lt;-- 大海)</td></tr>
+                            <tr><td>右附加关系</td><td>RAD</td><td>right adjunct</td><td>孩子们 (孩子 --&gt; 们)</td></tr>
+                            <tr><td>独立结构</td><td>IS</td><td>independent structure</td><td>两个单句在结构上彼此独立</td></tr>
+                            <tr><td>标点</td><td>WP</td><td>punctuation</td><td>。</td></tr>
+                            <tr><td>核心关系</td><td>HED</td><td>head</td><td>指整个句子的核心</td></tr>
+                        </tbody>
+                    </table>
+                </section>
+            </div>
+    
+            <div class="float-window" id="doc-categories">
+                <section class="doc-categories">
+                    <h2>法律文件分类</h2>
+                    <p>法律文件通常根据其来源和性质分为不同的类别，便于用户快速查找和筛选。</p>
+                    <ul>
+                        <li><strong>修正案：</strong>对现行法律进行修改或补充的正式文书。</li>
+                        <li><strong>宪法：</strong>国家的根本法，规定国家的基本制度和公民的基本权利。</li>
+                        <li><strong>宪法相关法律：</strong>与宪法相关的法律，包括法律和规章，帮助落实宪法的原则。</li>
+                        <li><strong>刑法：</strong>规定犯罪行为及其相应刑罚的法律。</li>
+                        <li><strong>民法商法：</strong>民法调整个人与个人之间的关系，商法则处理商业事务及商人之间的法律关系。</li>
+                        <li><strong>经济法：</strong>规范国家与市场经济行为之间的法律关系，涉及宏观经济调控。</li>
+                        <li><strong>行政法：</strong>规定政府与公民、法人等之间行政管理关系的法律。</li>
+                        <li><strong>诉讼法：</strong>规定法院审理案件的程序和规则，包括民事诉讼法、刑事诉讼法等。</li>
+                        <li><strong>非诉讼程序法：</strong>规定非诉讼争议解决程序的法律，如仲裁、调解等。</li>
+                    </ul>
+                </section>
+            </div>
+    
+            <div class="float-window" id="phrase-search">
+                <section class="search-methods">
+                    <h2>短语检索格式</h2>
+                    <p>本系统提供多种基于短语的搜索方式，满足用户对法律文本的不同检索需求。</p>
+                    <p>总体上来说，假设w代表关键词，p代表词性，在检索页面的短语检索支持的检索格式有：</p>
+                    <ul>
+                        <li><strong>单一关键词检索：</strong>检索格式为w，比如“国家”。允许用户输入某个词语进行简单的全文搜索，展示关键词所在的句子或段落。</li>
+                        <li><strong>单一词性检索：</strong>检索格式为p，比如“v”。允许用户输入某个词性进行搜索，展示所有属于该词性的词语所在的句子或段落。</li>
+                        <li><strong>关键词+词性检索：</strong>检索格式为w+p，比如“国家+v”，检索结果包括“国家采取”、“国家征收”等短语。允许用户输入“词语+词性”进行搜索，展示所有这种搭配的短语所在的句子或段落。</li>
+                        <li><strong>关键词+词性+词性检索：</strong>检索格式为w+p+p，比如“国家+v+n”。允许用户输入“词语+词性+词性”进行搜索，展示所有这种搭配的短语所在的句子或段落。</li>
+                        <li><strong>词性+关键词检索：</strong>检索格式为p+w，比如“v+国家”。允许用户输入“词性+词语”进行搜索，展示所有这种搭配的短语所在的句子或段落。</li>
+                    </ul>                    
+                </section>
+            </div>
+
+            <div class="float-window" id="dependency-search">
+                <section class="search-methods">
+                    <h2>依存关系检索格式</h2>
+                    <p>本系统提供多种基于依存关系的搜索方式，满足用户对文本的语法结构检索需求。</p>
+                    <p>总体上来说，假设word代表词语，dep代表依存关系，在检索页面的依存关系检索支持的检索格式有：</p>
+                    <ul>
+                        <li><strong>单一依存关系检索：</strong>检索格式为dep，比如"VOB"。允许用户输入某个依存关系类型进行搜索，展示所有包含该依存关系的句子，并显示头词和依存词。</li>
+                        <li><strong>词语+依存关系检索：</strong>检索格式为word+dep，比如"实施+VOB"。允许用户搜索特定词语作为头词且与依存词具有指定依存关系的句子。例如"实施+VOB"会查找"实施"作为动词，后接宾语的结构。</li>
+                        <li><strong>词语+as+依存关系检索：</strong>检索格式为word+as+dep，比如"实施+as+VOB"。允许用户搜索特定词语作为依存词且与头词具有指定依存关系的句子。例如"实施+as+VOB"会查找"实施"作为宾语，前面有支配它的动词的结构。</li>
+                    </ul>
+                    <p>注：在依存句法分析中，"头词"是指支配其他词语的词，"依存词"是指被支配的词，"依存关系"表示两个词之间的语法关系（如VOB表示动宾关系）。</p>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <!-- 页脚 -->
+    <footer class="footer">
+        <p>联系信息: example@example.com | 电话: 123-456-7890</p>
+        <p>版权所有 &copy; 2025 法律语料库检索系统</p>
+    </footer>
+
+    <!-- JavaScript -->
+    <script src="index.js"></script>
+</body>
+</html>

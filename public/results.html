@@ -1,0 +1,1310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>法律语料库检索系统</title>
+    <link rel="stylesheet" href="results.css">
+    <script>
+        let currentPage = 1;
+        let totalPages = 1;
+        const limit = 100;  // 适当减少以便测试时更方便观察结果
+
+        const maxPageButtons = 5;
+
+        // 获取URL参数的函数
+        function getQueryParam(param) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(param);
+        }
+
+        // 词语检索
+        async function searchWord(page = 1, newQuery = null) {
+            const query = newQuery || getQueryParam('query'); 
+            if (!query) {
+                alert('未找到查询参数');
+                return;
+            }
+
+            currentPage = page;
+            const response = await fetch('/search', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ query, page, limit })
+            });
+
+            const data = await response.json();
+            const { results, totalResults, totalPages: total } = data;
+            totalPages = total;
+
+            const resultContainer = document.getElementById('results');
+            resultContainer.innerHTML = '';
+
+            if (results.length === 0) {
+                resultContainer.innerHTML = '未找到匹配结果';
+            } else {
+                // 添加导出按钮到结果顶部
+                const exportBtn = document.createElement('button');
+                exportBtn.className = 'export-btn';
+                exportBtn.textContent = '导出到TXT文件';
+                exportBtn.onclick = () => exportToTxt(results, query);
+                // resultContainer.appendChild(exportBtn);
+
+                results.forEach((result, index) => {
+                    const div = document.createElement('div');
+                    const globalIndex = (page - 1) * limit + index + 1;
+
+                    // 创建标号
+                    const number = document.createElement('div');
+                    number.className = 'serial-num';
+                    number.innerHTML = `<strong>${globalIndex}</strong>.`;
+
+                    // 创建内容部分
+                    const contextDiv = document.createElement('div');
+                    contextDiv.className = 'context';
+                    contextDiv.innerHTML = `${getHighlightedContext(result.context)}`;
+                    contextDiv.style.textAlign = 'center'; // 将文本靠左对齐
+
+                    // 创建展开按钮
+                    const button = document.createElement('button');
+                    button.className = 'expand-btn';
+                    button.textContent = '展开';
+                    // button.onclick = () => fetchFileContent(result.file, globalIndex);
+                    button.onclick = () => displayContext(result, globalIndex);
+
+                    // 把标号、内容和按钮添加到结果div中
+                    div.className = 'result-item'; 
+                    div.appendChild(number);
+                    div.appendChild(contextDiv);
+                    div.appendChild(button);
+
+                    resultContainer.appendChild(div);
+                });
+
+                const paginationContainer = document.getElementById('pagination');
+                paginationContainer.innerHTML = generatePaginationHTML();
+
+                const pageInfoContainer = document.getElementById('page-info');
+                pageInfoContainer.style.display = 'flex';
+                document.getElementById('total-pages').textContent = `共 ${totalPages} 页, ${totalResults} 条结果`;
+            }
+
+            // 动态设置结果标题
+            const resultHeader = document.getElementById('result-header');
+            resultHeader.innerHTML = ` 
+                <div class="header-content"> 
+                    短语查询 <strong>${query}</strong> 的结果如下： 
+                </div>
+                <div class="filter-container">
+                    <input type="text" id="file-filter" class="file-filter" placeholder="输入文件名筛选结果" />
+                    <button id="filter-btn" class="stats-btn">筛选</button>
+                    <button id="stats-button" class="stats-btn">统计信息</button>
+                </div>
+            `;
+            resultHeader.style.textAlign = 'left';
+
+            // 添加筛选按钮事件监听
+            document.getElementById('filter-btn').addEventListener('click', () => {
+                const newFilter = document.getElementById('file-filter').value.trim();
+                searchByFilename(newFilter, 1);
+            });
+
+            const statsButton = document.getElementById('stats-button');
+            // document.getElementById('stats-button').addEventListener('click', showFilterModal);
+            statsButton.onclick = () => showFilterModal();
+        }
+
+
+// // 添加导出到TXT文件的函数
+// function exportToTxt(results, query) {
+//     // 创建文本内容
+//     let content = `查询词: ${query}\n`;
+//     content += `导出时间: ${new Date().toLocaleString()}\n\n`;
+//     content += `===== 查询结果 =====\n\n`;
+    
+//     // 逐条添加结果
+//     results.forEach((result, index) => {
+//         const num = index + 1;
+//         content += `${num}. ${result.file}\n`;
+//         content += `   ${result.context}\n\n`;
+//     });
+    
+//     // 创建Blob对象
+//     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    
+//     // 创建下载链接
+//     const a = document.createElement('a');
+//     const url = URL.createObjectURL(blob);
+//     a.href = url;
+//     a.download = `查询结果_${query}.txt`;
+    
+//     // 添加到文档并点击
+//     document.body.appendChild(a);
+//     a.click();
+    
+//     // 清理
+//     setTimeout(() => {
+//         document.body.removeChild(a);
+//         window.URL.revokeObjectURL(url);
+//     }, 100);
+// }
+
+// 添加导出到TXT文件的函数 - 支持导出所有页面结果
+async function exportToTxt(results, query) {
+    // 显示导出进度的提示
+    const resultContainer = document.getElementById('results');
+    const exportingMsg = document.createElement('div');
+    exportingMsg.className = 'exporting-message';
+    exportingMsg.textContent = '正在收集所有搜索结果，请稍候...';
+    resultContainer.prepend(exportingMsg);
+    
+    try {
+        // 获取所有的搜索结果（跨所有页面）
+        const allResults = await fetchAllResults(query);
+        
+        // 更新提示
+        exportingMsg.textContent = `已收集 ${allResults.length} 条结果，正在生成TXT文件...`;
+        
+        // 创建文本内容
+        let content = `查询词: ${query}\n`;
+        content += `导出时间: ${new Date().toLocaleString()}\n`;
+        content += `总条数: ${allResults.length} 条结果\n\n`;
+        content += `===== 查询结果 =====\n\n`;
+        
+        // 逐条添加结果
+        allResults.forEach((result, index) => {
+            const num = index + 1;
+            content += `${num}. ${result.file}\n`;
+            content += `   ${result.context}\n\n`;
+        });
+        
+        // 创建Blob对象
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+        
+        // 创建下载链接
+        const a = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        a.href = url;
+        a.download = `查询结果_${query}.txt`;
+        
+        // 添加到文档并点击
+        document.body.appendChild(a);
+        a.click();
+        
+        // 清理
+        setTimeout(() => {
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            exportingMsg.remove(); // 移除进度消息
+        }, 1000);
+    } catch (error) {
+        console.error('导出失败:', error);
+        exportingMsg.textContent = '导出失败，请重试';
+        exportingMsg.style.color = 'red';
+        
+        // 3秒后移除错误消息
+        setTimeout(() => {
+            exportingMsg.remove();
+        }, 3000);
+    }
+}
+
+// 新增函数：获取所有页面的搜索结果
+async function fetchAllResults(query) {
+    // 首先获取第一页以了解总页数
+    const response = await fetch('/search', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ query, page: 1, limit })
+    });
+    
+    const data = await response.json();
+    console.log(data);
+    const { totalPages, totalResults } = data;
+    console.log(totalPages);
+    console.log(totalResults);
+
+    
+    // 如果结果太多，可能需要给用户一个警告或限制
+    const maxResultsToExport = 10000; // 设置一个合理的上限
+    if (totalResults > maxResultsToExport) {
+        if (!confirm(`搜索结果共有 ${totalResults} 条，导出可能需要较长时间。是否继续？`)) {
+            throw new Error('用户取消了导出');
+        }
+    }
+    
+    // 创建所有页面请求的Promise数组
+    const promises = [];
+    for (let page = 1; page <= totalPages; page++) {
+        promises.push(
+            fetch('/search', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ query, page, limit })
+            }).then(res => res.json())
+        );
+    }
+    
+    // 并行获取所有页面的数据
+    const pagesData = await Promise.all(promises);
+    
+    // 合并所有页面的结果
+    const allResults = pagesData.reduce((acc, pageData) => {
+        return acc.concat(pageData.results);
+    }, []);
+    
+    return allResults;
+}
+
+// // 在纯文本中突出显示查询词的函数
+// function highlightQueryInPlainText(text, query) {
+//     // 处理查询词（可能包含空格或+等特殊格式）
+//     let searchTerms = [];
+    
+//     // 如果查询包含空格，它可能是短语查询
+//     if (query.includes(' ')) {
+//         // 将短语拆分为单词
+//         searchTerms = query.split(' ');
+//     } else if (query.includes('+')) {
+//         // 处理类似 "词+词性" 的查询
+//         searchTerms = query.split('+').filter(term => !isPOS(term)); // 过滤掉词性标记
+//     } else {
+//         // 单个词的查询
+//         searchTerms = [query];
+//     }
+    
+//     // 为每个搜索词创建正则表达式并进行替换
+//     searchTerms.forEach(term => {
+//         if (term && term.trim()) {
+//             const regex = new RegExp(escapeRegExp(term.trim()), 'gi');
+//             text = text.replace(regex, '【$&】');
+//         }
+//     });
+    
+//     return text;
+// }
+
+function isPos(input) {
+    // 这里定义你的词性列表，根据需求修改
+    const posList = ['ns', 'n', 'wp', 'nt', 'v', 'j', 'm', 'q', 'b', 'a', 'p', 'u', 'c', 'r', 'ni', 'd', 'i', 'nd', 'nl', 'nz', 'nh', 'h', 'z', 'k'];
+    return posList.includes(input);
+}
+
+// 转义正则表达式中的特殊字符
+function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& 表示整个匹配的字符串
+}
+
+        // 依存关系检索
+        async function searchDependency(page = 1, newQuery = null) {
+            const query = newQuery || getQueryParam('query');
+            if (!query) {
+                alert('未找到查询参数');
+                return;
+            }
+
+            currentPage = page;
+            const response = await fetch('/search-dependency', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ query, page, limit })
+            });
+
+            const data = await response.json();
+            const { results, totalResults, totalPages: total } = data;
+            totalPages = total;
+
+            const resultContainer = document.getElementById('results');
+            resultContainer.innerHTML = '';
+
+            if (results.length === 0) {
+                resultContainer.innerHTML = '未找到匹配结果';
+            } else {
+                results.forEach((result, index) => {
+                    const div = document.createElement('div');
+                    const globalIndex = (page - 1) * limit + index + 1;
+
+                    // 创建标号
+                    const number = document.createElement('div');
+                    number.className = 'serial-num';
+                    number.innerHTML = `<strong>${globalIndex}</strong>.`;
+
+                    // 创建依存关系信息部分
+                    const depInfoDiv = document.createElement('div');
+                    depInfoDiv.className = 'dep-info';
+                    
+                    // 依存关系详情
+                    let depInfo = '';
+                    if (result.headWord && result.dependentWord) {
+                        depInfo = `<span class="head-word">${result.headWord}</span> (${result.headPos || '?'}) 
+                                <span class="dep-relation">${result.dependencyRelation}</span> 
+                                <span class="dependent-word">${result.dependentWord}</span> (${result.dependentPos || '?'})`;
+                    } else {
+                        depInfo = `依存关系: ${result.dependencyRelation}`;
+                    }
+                    
+                    depInfoDiv.innerHTML = depInfo;
+                    
+                    // 创建内容部分
+                    const contextDiv = document.createElement('div');
+                    contextDiv.className = 'context';
+                    contextDiv.innerHTML = `${result.context}`;
+                    contextDiv.style.textAlign = 'center';
+
+                    // 创建展开按钮
+                    const button = document.createElement('button');
+                    button.className = 'expand-btn';
+                    button.textContent = '展开';
+                    button.onclick = () => displayContext(result, globalIndex);
+
+                    // 把标号、依存信息、内容和按钮添加到结果div中
+                    div.className = 'result-item dependency-item';
+                    div.appendChild(number);
+                    // div.appendChild(depInfoDiv);
+                    div.appendChild(contextDiv);
+                    div.appendChild(button);
+
+                    resultContainer.appendChild(div);
+                });
+
+                const paginationContainer = document.getElementById('pagination');
+                paginationContainer.innerHTML = generatePaginationHTML();
+
+                const pageInfoContainer = document.getElementById('page-info');
+                pageInfoContainer.style.display = 'flex';
+                document.getElementById('total-pages').textContent = `共 ${totalPages} 页, ${totalResults} 条结果`;
+            }
+
+            // 动态设置结果标题 - 不包含筛选按钮和统计按钮
+            const resultHeader = document.getElementById('result-header');
+            resultHeader.innerHTML = ` 
+                <div class="header-content"> 
+                    依存关系查询 <strong>${query}</strong> 的结果如下： 
+                </div>
+                <div class="filter-container">
+                    <input type="text" id="file-filter" class="file-filter" placeholder="输入文件名筛选结果" />
+                    <button id="filter-btn" class="stats-btn">筛选</button>
+                    <button id="stats-button" class="stats-btn">统计信息</button>
+                </div>
+            `;
+            resultHeader.style.textAlign = 'left';
+
+            // 添加筛选按钮事件监听
+            document.getElementById('filter-btn').addEventListener('click', () => {
+                const newFilter = document.getElementById('file-filter').value.trim();
+                searchDependencyByFilename(newFilter, 1);
+            });
+
+            const statsButton = document.getElementById('stats-button');
+            statsButton.onclick = () => showFilterModal(null ,true);
+        }
+
+        async function searchByFilename(filename, page = 1) {
+            const query = getQueryParam('query');
+            if (!query) {
+                alert('未找到查询参数');
+                return;
+            }
+
+            if (!filename || filename.trim() === '') {
+                // 如果没有提供文件名，则回到常规搜索
+                searchWord(currentPage, query);
+                return;
+            }
+
+            currentPage = page;
+            const response = await fetch('/search-file', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    query, 
+                    file: filename.trim(),
+                    page, 
+                    limit,
+                })
+            });
+
+            const data = await response.json();
+            const { results, totalResults, totalPages: total } = data;
+            totalPages = total;
+
+            const resultContainer = document.getElementById('results');
+            resultContainer.innerHTML = '';
+
+            if (results.length === 0) {
+                resultContainer.innerHTML = `<div class="no-results">在文件 "${filename}" 中未找到匹配结果</div>`;
+            } else {
+                results.forEach((result, index) => {
+                    const div = document.createElement('div');
+                    const globalIndex = (page - 1) * limit + index + 1;
+
+                    // 创建标号
+                    const number = document.createElement('div');
+                    number.className = 'serial-num';
+                    number.innerHTML = `<strong>${globalIndex}</strong>.`;
+
+                    // 创建内容部分
+                    const contextDiv = document.createElement('div');
+                    contextDiv.className = 'context';
+                    contextDiv.innerHTML = `${getHighlightedContext(result.context)}`;
+                    contextDiv.style.textAlign = 'center';
+
+                    // 创建文件名显示
+                    const fileDiv = document.createElement('div');
+                    fileDiv.className = 'file-name';
+                    fileDiv.textContent = result.file;
+
+                    // 创建展开按钮
+                    const button = document.createElement('button');
+                    button.className = 'expand-btn';
+                    button.textContent = '展开';
+                    button.onclick = () => displayContext(result, globalIndex);
+
+                    // 把标号、内容和按钮添加到结果div中
+                    div.className = 'result-item';
+                    div.dataset.file = result.file; // 添加文件名作为数据属性
+                    div.appendChild(number);
+                    div.appendChild(contextDiv);
+                    div.appendChild(button);
+
+                    resultContainer.appendChild(div);
+                });
+
+                const paginationContainer = document.getElementById('pagination');
+                paginationContainer.innerHTML = generatePaginationHTML();
+
+                const pageInfoContainer = document.getElementById('page-info');
+                pageInfoContainer.style.display = 'flex';
+                document.getElementById('total-pages').textContent = `共 ${totalPages} 页, ${totalResults} 条结果`;
+            }
+
+            // 动态设置结果标题
+            const resultHeader = document.getElementById('result-header');
+            resultHeader.innerHTML = ` 
+                <div class="header-content"> 
+                    在 <strong>${filename}</strong> 中短语搜索 <strong>${query}</strong> 的结果： 
+                </div>
+                <div class="filter-container">
+                    <input type="text" id="file-filter" class="file-filter" placeholder="输入文件名筛选结果" value="${filename}"/>
+                    <button id="filter-btn" class="stats-btn">筛选</button>
+                    <button id="clear-filter-btn" class="stats-btn">清除筛选</button>
+                    <button id="stats-button" class="stats-btn">统计信息</button>
+                </div>
+            `;
+            resultHeader.style.textAlign = 'left';
+
+            // 添加筛选按钮事件监听
+            document.getElementById('filter-btn').addEventListener('click', () => {
+                const newFilter = document.getElementById('file-filter').value.trim();
+                searchByFilename(newFilter, 1);
+            });
+
+            // 添加清除筛选按钮事件监听
+            document.getElementById('clear-filter-btn').addEventListener('click', () => {
+                document.getElementById('file-filter').value = '';
+                searchWord(1, query); // 重置为无筛选的搜索
+            });
+
+            // 添加统计按钮事件监听
+            document.getElementById('stats-button').addEventListener('click', function() {
+                showFilterModal(filename);
+            });
+        }
+
+        async function searchDependencyByFilename(filename, page = 1) {
+            const query = getQueryParam('query');
+            if (!query) {
+                alert('未找到查询参数');
+                return;
+            }
+
+            if (!filename || filename.trim() === '') {
+                // 如果没有提供文件名，则回到常规搜索
+                searchDependency(currentPage, query);
+                return;
+            }
+
+            currentPage = page;
+            const response = await fetch('/search-Dependency-file', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    query, 
+                    file: filename.trim(),
+                    page, 
+                    limit,
+                })
+            });
+
+            const data = await response.json();
+            const { results, totalResults, totalPages: total } = data;
+            totalPages = total;
+
+            const resultContainer = document.getElementById('results');
+            resultContainer.innerHTML = '';
+
+            if (results.length === 0) {
+                resultContainer.innerHTML = `<div class="no-results">在 "${filename}" 中未找到匹配结果</div>`;
+            } else {
+                results.forEach((result, index) => {
+                    const div = document.createElement('div');
+                    const globalIndex = (page - 1) * limit + index + 1;
+
+                    // 创建标号
+                    const number = document.createElement('div');
+                    number.className = 'serial-num';
+                    number.innerHTML = `<strong>${globalIndex}</strong>.`;
+
+                    // 创建依存关系信息部分
+                    const depInfoDiv = document.createElement('div');
+                    depInfoDiv.className = 'dep-info';
+                    
+                    // 依存关系详情
+                    let depInfo = '';
+                    if (result.headWord && result.dependentWord) {
+                        depInfo = `<span class="head-word">${result.headWord}</span> (${result.headPos || '?'}) 
+                                <span class="dep-relation">${result.dependencyRelation}</span> 
+                                <span class="dependent-word">${result.dependentWord}</span> (${result.dependentPos || '?'})`;
+                    } else {
+                        depInfo = `依存关系: ${result.dependencyRelation}`;
+                    }
+                    
+                    depInfoDiv.innerHTML = depInfo;
+                    
+                    // 创建内容部分
+                    const contextDiv = document.createElement('div');
+                    contextDiv.className = 'context';
+                    contextDiv.innerHTML = `${result.context}`;
+                    contextDiv.style.textAlign = 'center';
+
+                    // 创建展开按钮
+                    const button = document.createElement('button');
+                    button.className = 'expand-btn';
+                    button.textContent = '展开';
+                    button.onclick = () => displayContext(result, globalIndex);
+
+                    // 把标号、依存信息、内容和按钮添加到结果div中
+                    div.className = 'result-item dependency-item';
+                    div.appendChild(number);
+                    // div.appendChild(depInfoDiv);
+                    div.appendChild(contextDiv);
+                    div.appendChild(button);
+
+                    resultContainer.appendChild(div);
+                });
+
+                const paginationContainer = document.getElementById('pagination');
+                paginationContainer.innerHTML = generatePaginationHTML();
+
+                const pageInfoContainer = document.getElementById('page-info');
+                pageInfoContainer.style.display = 'flex';
+                document.getElementById('total-pages').textContent = `共 ${totalPages} 页, ${totalResults} 条结果`;
+            }
+
+            // 动态设置结果标题
+            const resultHeader = document.getElementById('result-header');
+            resultHeader.innerHTML = ` 
+                <div class="header-content"> 
+                    在 <strong>${filename}</strong> 中依存关系搜索 <strong>${query}</strong> 的结果： 
+                </div>
+                <div class="filter-container">
+                    <input type="text" id="file-filter" class="file-filter" placeholder="输入文件名筛选结果" value="${filename}"/>
+                    <button id="filter-btn" class="stats-btn">筛选</button>
+                    <button id="clear-filter-btn" class="stats-btn">清除筛选</button>
+                    <button id="stats-button" class="stats-btn">统计信息</button>
+                </div>
+            `;
+            resultHeader.style.textAlign = 'left';
+
+            // 添加筛选按钮事件监听
+            document.getElementById('filter-btn').addEventListener('click', () => {
+                const newFilter = document.getElementById('file-filter').value.trim();
+                searchDependencyByFilename(newFilter, 1);
+            });
+
+            // 添加清除筛选按钮事件监听
+            document.getElementById('clear-filter-btn').addEventListener('click', () => {
+                document.getElementById('file-filter').value = '';
+                searchDependency(1, query); // 重置为无筛选的搜索
+            });
+
+            // 添加统计按钮事件监听
+            document.getElementById('stats-button').addEventListener('click', function() {
+                showFilterModal(filename, true);
+            });
+        }
+
+
+        function showFilterModal(filename = null, isDependency = false) {
+            const filterModal = document.getElementById('filter-modal');
+            filterModal.style.display = 'flex';
+            const selectModal = document.getElementById('select-html');
+
+            if (!isDependency) {
+                if (filename) {
+                    selectModal.style.display = 'none';
+                    fetchStatistics('single', filename);
+                    document.body.style.overflow = 'hidden';
+                } else {
+                    selectModal.style.display = 'flex';
+                    const select = document.getElementById('file-type');
+                    select.value = 'all';
+                    fetchStatistics(select.value);
+                    document.body.style.overflow = 'hidden';
+                }
+            } else {
+                if (filename) {
+                    selectModal.style.display = 'none';
+                    dependencyStat(filename);
+                    document.body.style.overflow = 'hidden';
+                } else {
+                    selectModal.style.display = 'none';
+                    dependencyStat();
+                    document.body.style.overflow = 'hidden';
+                }
+            }
+        }
+
+        // 关闭筛选条件模态框
+        function closeFilterModal() {
+            const filterModal = document.getElementById('filter-modal');
+            filterModal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+
+        let datas = []; // 将 datas 移到全局范围
+
+        // 获取统计信息并显示
+        async function fetchStatistics(value, filename = null) {
+            console.log(`Selected value: ${value}`);
+            const query = getQueryParam('query'); 
+            const fileType = value;
+
+            // 显示加载中
+            const statsHTMLDiv = document.getElementById('stats-html');
+            statsHTMLDiv.innerHTML = '<h2>加载中...</h2>';
+
+            let categories = ['修正案','刑法','宪法','宪法相关法律','民法商法','社会法','经济法','行政法','诉讼法与非诉讼程序法']; 
+            let category;
+            let response, data;
+            if (fileType === 'all' ) {
+                response = await fetch('/fetchAllResults', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ query })
+                });
+                data = await response.json();
+                const { results, totalResults } = data;
+
+            // 统计文件类型或单个文件中高亮词的总数
+            const wordCount = {};
+            results.forEach(result => {
+                if (!wordCount[result.highlightedWords]) {
+                    wordCount[result.highlightedWords] = 0;
+                }
+                wordCount[result.highlightedWords] += 1;
+            });
+
+            // 将统计结果转换为数组并排序
+            const sortedWordCount = Object.entries(wordCount)
+                .sort((a, b) => b[1] - a[1])
+                .map(([word, count]) => ({ word, count }));
+
+            // 创建左右两个div
+            statsHTMLDiv.innerHTML = `
+                <div id="stats-container" style="display: flex; gap: 10px; width: 100%;">
+                    <div id="data-results" style="flex: 1; padding-right: 10px; overflow-y: auto; width: 100%;"></div>
+                    <div id="chart-container" style="flex: 1;width: 100%;"><svg id="svg2"></svg></div>
+                </div>
+            `;
+
+            // 获取左右两个容器
+            const dataResultsDiv = document.getElementById('data-results');
+            const chartContainerDiv = document.getElementById('chart-container');
+
+            // 填充数据结果到左侧div
+            let statsHTML = '';
+            sortedWordCount.forEach(item => {
+                statsHTML += `
+                    <div class="file-stat">
+                        <div class="file-name">${item.word}</div>
+                        <div class="file-count">${item.count}</div>
+                    </div>
+                `;
+            });
+            dataResultsDiv.innerHTML = statsHTML;
+
+            // 转换为绘制柱状图需要的数据格式，仅保留前10项
+            const chartData = Object.entries(wordCount)
+                .map(([word, count]) => ({ category: word, count }))
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 10);
+
+            // 调用 Bar 绘制柱状图
+            Bar(chartData);
+
+            } else if(fileType === 'some') {
+                // 获取特定文件统计信息
+                for (category of categories) {
+                    response = await fetch('/fetchSomeResults', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ query, category })
+                    });
+                    data = await response.json();
+                    datas.push({ category, data }); // 或者根据需求更改数据结构
+                }
+
+                const categoryCount = {};
+
+                datas.forEach(eachData => {
+                    categoryCount[eachData.category] = eachData.data.totalResults;
+                });
+
+                // 将统计结果转换为数组并排序
+                const sortedWordCount = Object.entries(categoryCount)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([category, count]) => ({ category, count }));
+                
+                // 创建左右两个div
+                statsHTMLDiv.innerHTML = `
+                    <div id="stats-container" style="display: flex; gap: 10px; width: 100%;">
+                        <div id="data-results" style="flex: 1; padding-right: 10px; overflow-y: auto; width: 100%;"></div>
+                        <div id="chart-container" style="flex: 1;width: 100%;"><svg id="svg2"></svg></div>
+                    </div>
+                `;
+
+                // 获取左右两个容器
+                const dataResultsDiv = document.getElementById('data-results');
+                const chartContainerDiv = document.getElementById('chart-container');
+
+                let statsHTML = '';
+                sortedWordCount.forEach(item => {
+                    statsHTML += `
+                        <div class="file-stat">
+                            <div class="file-name">${item.category}</div>
+                            <div class="file-count">${item.count}</div>
+                            <button onclick="toggleDetails('${item.category}')">显示详情</button>
+                        </div>
+                    `;
+                });
+
+                // 显示统计结果
+                dataResultsDiv.innerHTML = statsHTML;
+
+                // 转换为绘制柱状图需要的数据格式，仅保留前10项
+                const chartData = Object.entries(categoryCount)
+                    .map(([category, count]) => ({ category: category, count }))
+                    .sort((a, b) => b.count - a.count)
+                    .slice(0, 10);
+
+                // 调用 Bar 绘制柱状图
+                Bar(chartData);
+            } else if(fileType === 'single') {
+                response = await fetch('/fetchSingleResults', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ query, file: filename })
+                });
+                data = await response.json();
+                const { results, totalResults } = data;
+
+                // 统计文件类型或单个文件中高亮词的总数
+                const wordCount = {};
+                results.forEach(result => {
+                    if (!wordCount[result.highlightedWords]) {
+                        wordCount[result.highlightedWords] = 0;
+                    }
+                    wordCount[result.highlightedWords] += 1;
+                });
+
+                // 将统计结果转换为数组并排序
+                const sortedWordCount = Object.entries(wordCount)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([word, count]) => ({ word, count }));
+
+                // 创建左右两个div
+                statsHTMLDiv.innerHTML = `
+                    <div id="stats-container" style="display: flex; gap: 10px; width: 100%;">
+                        <div id="data-results" style="flex: 1; padding-right: 10px; overflow-y: auto; width: 100%;"></div>
+                        <div id="chart-container" style="flex: 1;width: 100%;"><svg id="svg2"></svg></div>
+                    </div>
+                `;
+
+                // 获取左右两个容器
+                const dataResultsDiv = document.getElementById('data-results');
+                const chartContainerDiv = document.getElementById('chart-container');
+
+                // 填充数据结果到左侧div
+                let statsHTML = '';
+                sortedWordCount.forEach(item => {
+                    statsHTML += `
+                        <div class="file-stat">
+                            <div class="file-name">${item.word}</div>
+                            <div class="file-count">${item.count}</div>
+                        </div>
+                    `;
+                });
+                dataResultsDiv.innerHTML = statsHTML;
+
+                // 转换为绘制柱状图需要的数据格式，仅保留前10项
+                const chartData = Object.entries(wordCount)
+                    .map(([word, count]) => ({ category: word, count }))
+                    .sort((a, b) => b.count - a.count)
+                    .slice(0, 10);
+
+                // 调用 Bar 绘制柱状图
+                Bar(chartData);
+            } 
+        }
+
+        function toggleDetails(category) {
+            const selectHTMLDiv = document.getElementById('select-html');
+            const originalHTML2 = selectHTMLDiv.innerHTML;
+
+            const categorySpan = document.getElementById('category-name');
+            categorySpan.innerText = `${category}`;
+            selectHTMLDiv.innerHTML += `<button id="back-button">返回</button>`;
+
+            const statsHTMLDiv = document.getElementById('stats-html');
+            const originalHTML = statsHTMLDiv.innerHTML;
+            const result = datas.find(each => each.category === category);
+            const { results, totalResults } = result.data;
+
+            // 统计文件类型或单个文件中高亮词的总数
+            const wordCount = {};
+            results.forEach(result => {
+                if (!wordCount[result.highlightedWords]) {
+                    wordCount[result.highlightedWords] = 0;
+                }
+                wordCount[result.highlightedWords] += 1;
+            });
+
+            // 将统计结果转换为数组并排序
+            const sortedWordCount = Object.entries(wordCount)
+                .sort((a, b) => b[1] - a[1])
+                .map(([word, count]) => ({ word, count }));
+
+            // 创建左右两个div
+            statsHTMLDiv.innerHTML = `
+                <div id="stats-container" style="display: flex; gap: 10px; width: 100%;">
+                    <div id="data-results" style="flex: 1; padding-right: 10px; overflow-y: auto; width: 100%;"></div>
+                    <div id="chart-container" style="flex: 1;width: 100%;"><svg id="svg2"></svg></div>
+                </div>
+            `;
+
+            // 获取左右两个容器
+            const dataResultsDiv = document.getElementById('data-results');
+            const chartContainerDiv = document.getElementById('chart-container');
+
+            // 增加返回按钮
+            let statsHTML = '';
+            sortedWordCount.forEach(item => {
+                statsHTML += `
+                    <div class="file-stat">
+                        <div class="file-name">${item.word}</div>
+                        <div class="file-count">${item.count}</div>
+                    </div>
+                `;
+            });
+            dataResultsDiv.innerHTML = statsHTML;
+
+            // 转换为绘制柱状图需要的数据格式，仅保留前10项
+            const chartData = Object.entries(wordCount)
+                .map(([word, count]) => ({ category: word, count }))
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 10);
+
+            // 调用 Bar 绘制柱状图
+            Bar(chartData);
+    
+            // 添加返回按钮的事件监听
+            document.getElementById('back-button').addEventListener('click', () => {
+                statsHTMLDiv.innerHTML = originalHTML;  // 恢复原始 HTML 内容
+                selectHTMLDiv.innerHTML = originalHTML2;
+            });
+        }
+
+        // 获取依存关系检索的统计信息并显示
+        async function dependencyStat(filename = null) {
+            const query = getQueryParam('query'); 
+
+            // 显示加载中
+            const statsHTMLDiv = document.getElementById('stats-html');
+            statsHTMLDiv.innerHTML = '<h2>加载中...</h2>';
+
+            let response, data;
+
+            if (filename) {
+                response = await fetch('/dependency-file-stat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ query, file: filename })
+                });
+                data = await response.json();
+                const { results, totalResults } = data;
+
+                // 统计依存关系模式
+                const depRelationCount = {};
+                results.forEach(result => {
+                    // 构建依存关系字符串
+                    const depInfo = `${result.headWord}(${result.headPos || '?'}) ${result.dependencyRelation} ${result.dependentWord}(${result.dependentPos || '?'})`;
+                    
+                    if (!depRelationCount[depInfo]) {
+                        depRelationCount[depInfo] = 0;
+                    }
+                    depRelationCount[depInfo] += 1;
+                });
+
+                // 将统计结果转换为数组并排序
+                const sortedDepRelationCount = Object.entries(depRelationCount)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([depInfo, count]) => ({ depInfo, count }));
+
+                // 创建左右两个div
+                statsHTMLDiv.innerHTML = `
+                    <div id="stats-container" style="display: flex; gap: 10px; width: 100%;">
+                        <div id="data-results" style="flex: 1; padding-right: 10px; overflow-y: auto; width: 100%;"></div>
+                        <div id="chart-container" style="flex: 1;width: 100%;"><svg id="svg2"></svg></div>
+                    </div>
+                `;
+
+                // 获取左右两个容器
+                const dataResultsDiv = document.getElementById('data-results');
+                const chartContainerDiv = document.getElementById('chart-container');
+
+                // 填充数据结果到左侧div
+                let statsHTML = '';
+                sortedDepRelationCount.forEach(item => {
+                    statsHTML += `
+                        <div class="file-stat">
+                            <div class="file-name">${item.depInfo}</div>
+                            <div class="file-count">${item.count}</div>
+                        </div>
+                    `;
+                });
+                dataResultsDiv.innerHTML = statsHTML;
+
+                // 转换为绘制柱状图需要的数据格式，仅保留前10项
+                const chartData = sortedDepRelationCount
+                    .slice(0, 10)
+                    .map(item => ({ category: item.depInfo, count: item.count }));
+
+                // 调用 Bar 绘制柱状图
+                Bar(chartData);
+            } else {
+                response = await fetch('/dependency-stat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ query })
+                });
+                data = await response.json();
+                const { results, totalResults } = data;
+
+                // 统计依存关系模式
+                const depRelationCount = {};
+                results.forEach(result => {
+                    // 构建依存关系字符串
+                    const depInfo = `${result.headWord}(${result.headPos || '?'}) ${result.dependencyRelation} ${result.dependentWord}(${result.dependentPos || '?'})`;
+                    
+                    if (!depRelationCount[depInfo]) {
+                        depRelationCount[depInfo] = 0;
+                    }
+                    depRelationCount[depInfo] += 1;
+                });
+
+                // 将统计结果转换为数组并排序
+                const sortedDepRelationCount = Object.entries(depRelationCount)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([depInfo, count]) => ({ depInfo, count }));
+
+                // 创建左右两个div
+                statsHTMLDiv.innerHTML = `
+                    <div id="stats-container" style="display: flex; gap: 10px; width: 100%;">
+                        <div id="data-results" style="flex: 1; padding-right: 10px; overflow-y: auto; width: 100%;"></div>
+                        <div id="chart-container" style="flex: 1;width: 100%;"><svg id="svg2"></svg></div>
+                    </div>
+                `;
+
+                // 获取左右两个容器
+                const dataResultsDiv = document.getElementById('data-results');
+                const chartContainerDiv = document.getElementById('chart-container');
+
+                // 填充数据结果到左侧div
+                let statsHTML = '';
+                sortedDepRelationCount.forEach(item => {
+                    statsHTML += `
+                        <div class="file-stat">
+                            <div class="file-name">${item.depInfo}</div>
+                            <div class="file-count">${item.count}</div>
+                        </div>
+                    `;
+                });
+                dataResultsDiv.innerHTML = statsHTML;
+
+                // 转换为绘制柱状图需要的数据格式，仅保留前10项
+                const chartData = sortedDepRelationCount
+                    .slice(0, 10)
+                    .map(item => ({ category: item.depInfo, count: item.count }));
+
+                // 调用 Bar 绘制柱状图
+                Bar(chartData);
+            }
+}
+
+        function getHighlightedContext(fullContext, contextLength = 80, highlightsForwardRatio = 0.5) {
+            const markStartPositions = [];
+            const markEndPositions = [];
+            let searchStartIndex = 0;
+
+            // 寻找所有 <mark> 和 </mark> 位置
+            while (true) {
+                const markStart = fullContext.indexOf('<mark>', searchStartIndex);
+                const markEnd = fullContext.indexOf('</mark>', searchStartIndex);
+                if (markStart === -1 || markEnd === -1) break;
+                markStartPositions.push(markStart);
+                markEndPositions.push(markEnd + 6); // '</mark>'.length = 6
+                searchStartIndex = markEnd + 6; // Skip past this mark to find the next
+            }
+            if (markStartPositions.length === 0 || markEndPositions.length === 0) {
+                // 如果没有找到 <mark> 标签，返回全文的一部分
+                return fullContext.substring(0, contextLength) + (fullContext.length > contextLength ? '...' : '');
+            }
+            // 取得所有高亮词的整体起始和结束位置
+            const overallMarkStart = markStartPositions[0];
+            const overallMarkEnd = markEndPositions[markEndPositions.length - 1];
+            const highlightLength = overallMarkEnd - overallMarkStart;
+
+            // 计算前后上下文长度
+            const minimumContextLength = contextLength - highlightLength;
+            const beforeLength = Math.ceil(minimumContextLength * highlightsForwardRatio);
+            const afterLength = minimumContextLength - beforeLength;
+            let beforeMark = Math.max(0, overallMarkStart - beforeLength);
+            let afterMark = Math.min(fullContext.length, overallMarkEnd + afterLength);
+
+            // 调整上下文长度，确保展示的文本数量固定且不会超出原文范围
+            if (afterMark - beforeMark < contextLength) {
+                if (beforeMark === 0) {
+                    afterMark = Math.min(fullContext.length, beforeMark + contextLength);
+                } else if (afterMark === fullContext.length) {
+                    beforeMark = Math.max(0, afterMark - contextLength);
+                } else {
+                    const remainingLength = contextLength - (afterMark - beforeMark);
+                    beforeMark = Math.max(0, beforeMark - Math.ceil(remainingLength / 2));
+                    afterMark = Math.min(fullContext.length, afterMark + Math.floor(remainingLength / 2));
+                }
+            }
+            const displayedText = fullContext.substring(beforeMark, afterMark);
+            return (beforeMark > 0 ? '...' : '') + displayedText + (afterMark < fullContext.length ? '...' : '');
+        }
+
+        function displayContext(result, index) {
+            const modal = document.getElementById('modal');
+            const modalContent = document.getElementById('modal-content');
+    
+            // 清空模态框内容
+            modalContent.innerHTML = '';
+
+            // 创建一个用于显示内容的 div
+            const contextWrapper = document.createElement('div');
+            contextWrapper.innerHTML = `</h1>${result.context}`;
+
+            // 创建文件按钮
+            const fileButton = document.createElement('button');
+            fileButton.textContent = `${result.file}`;
+            // fileButton.onclick = () => {
+            //     window.location.href = result.file;
+            // };
+            fileButton.onclick = () => 
+            {
+                // window.location.href = `/laws.html`;
+                // fetchFileContent(result.file);
+                const fileName = encodeURIComponent(result.file); // 文件名进行编码
+                // const category = document.getElementById('category').value; // 假设有类别需要传递
+                const newUrl = `/laws.html?category=&fileName=${fileName}`;
+                // 跳转到新的页面
+                window.location.href = newUrl;
+            }
+    
+            // 将内容和按钮添加到模态框内容中
+            modalContent.appendChild(contextWrapper);
+            modalContent.appendChild(fileButton);
+
+            // 显示模态框
+            modal.style.display = 'flex';
+
+            // 禁用页面其他部分的操作
+            document.body.style.overflow = 'hidden';
+        }
+
+        //显示文件内容并展开文本
+        async function fetchFileContent(fileName) {
+            // 发起请求获取文件内容
+            const response = await fetch(`/file-content`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ fileName })
+            });
+
+            const { content } = await response.json();
+            
+            // 显示模态框
+            const modal = document.getElementById('modal');
+            const modalContent = document.getElementById('modal-content');
+            modalContent.innerHTML = `</h2><pre>${content}</pre>`;
+            modal.style.display = 'flex';
+
+            document.body.style.overflow = 'hidden';
+        }
+
+        // 收起内容
+        function closeModal() {
+            const modal = document.getElementById('modal');
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+
+        function generatePaginationHTML() {
+            let paginationHTML = '';
+            const half = Math.floor(maxPageButtons / 2);
+            let startPage = Math.max(1, currentPage - half);
+            let endPage = Math.min(totalPages, startPage + maxPageButtons - 1);
+
+            if (endPage - startPage < maxPageButtons - 1) {
+                startPage = Math.max(1, endPage - maxPageButtons + 1);
+            }
+
+            if (currentPage > 1) {
+                paginationHTML += `<button onclick="searchWord(${currentPage - 1})">上一页</button>`;
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                if (i === currentPage) {
+                    paginationHTML += `<button class="active">${i}</button>`;
+                } else {
+                    paginationHTML += `<button onclick="searchWord(${i})">${i}</button>`;
+                }
+            }
+
+            if (currentPage < totalPages) {
+                paginationHTML += `<button onclick="searchWord(${currentPage + 1})">下一页</button>`;
+            }
+
+            return paginationHTML;
+        }
+
+        function jumpToPage() {
+            const page = parseInt(document.getElementById('jump-to-page').value);
+            if (page >= 1 && page <= totalPages) {
+                searchWord(page);
+            } else {
+                alert('请输入有效的页码');
+            }
+        }
+
+        // 处理搜索框的搜索功能
+        function search() {
+            const query = document.getElementById('search-input').value;
+            if (query.trim() === '') {
+                alert('请输入要搜索的词语');
+                return;
+            }
+            
+            // 获取选中的搜索类型
+            const searchType = document.querySelector('input[name="searchType"]:checked').value;
+            
+            // 将搜索词和搜索类型作为查询参数传递
+            window.location.href = `results.html?query=${encodeURIComponent(query)}&type=${searchType}`;
+        }
+
+        window.onload = () => {
+            const query = getQueryParam('query');
+            const searchType = getQueryParam('type');
+            
+            if (query) {
+                if (searchType === 'dependency') {
+                    searchDependency(); // 如果是依存关系检索
+                } else {
+                    searchWord(); // 默认为词语检索
+                }
+            } else {
+                alert('未找到查询参数');
+            }
+        };
+    </script>
+</head>
+<body>
+    <div class="navbar">
+        <a href="index.html">首页</a>
+        <a href="search.html">搜索</a>
+        <a href="laws.html">法律文献</a>
+        <a href="login.html">AI助理</a>
+        <div class="search-box">
+            <input type="text" id="search-input" placeholder="输入要检索的词语">
+            <button onclick="search()">搜索</button>
+        </div>
+    </div>
+    <div id="result-header"></div>
+    <div id="results"></div>
+    <div id="pagination-container" style="display: flex; align-items: center; margin-top: 20px;">
+        <div id="pagination"></div>
+        <div id="page-info" style="display: none; margin-left: 10px;">
+            <span id="total-pages" style="margin-right: 10px;"></span>
+            <input type="number" id="jump-to-page" min="1" placeholder="跳转到">
+            <button onclick="jumpToPage()">跳转</button>
+        </div>
+    </div>
+
+    <div id="filter-modal" class="modal">
+        <div id="modal-content-1" class="modal-content">
+            <span class="close-btn" onclick="closeFilterModal()">&times;</span>
+            <div id="filter-modal-content">
+                <div id="select-html">
+                    <label for="file-type">请选择文件类型: </label>
+                    <select id="file-type" onchange="fetchStatistics(event.target.value)">
+                        <option value="all">所有文件</option>
+                        <option value="some">特定文件</option>
+                        <!-- <option value="single">单一文件</option> -->
+                    </select>
+                    <span id="category-name"></span>
+                </div>
+                <div id="stats-html"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal()">&times;</span>
+            <div id="modal-content"></div>
+        </div>
+    </div>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="bar.js"></script>
+</body>
+</html>

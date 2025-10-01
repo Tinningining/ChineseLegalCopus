@@ -1,0 +1,892 @@
+/* 基础样式 */
+body, html {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: 'Arial', sans-serif;
+    background-color: #f4f4f4;
+    color: #333;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 保持导航栏样式不变 */
+.navbar {
+    width: 100%;
+    background-color: #4CAF50;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.navbar a {
+    display: block;
+    color: white;
+    text-align: center;
+    padding: 14px 20px;
+    text-decoration: none;
+    font-size: 16px;
+}
+
+.navbar a:hover {
+    background-color: #45a049;
+}
+
+.logout-btn {
+    background-color: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.logout-btn:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* 用户信息区域样式 */
+.user-info {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    padding: 0 15px;
+    color: white;
+}
+
+.username {
+    margin-right: 10px;
+    font-weight: 500;
+}
+
+/* 布局样式 */
+.main-container {
+    display: flex;
+    height: calc(100vh - 50px); /* 减去导航栏高度 */
+    width: 100%;
+    margin-top: 50px; /* 添加顶部边距，与导航栏高度相同 */
+    overflow-x: hidden; /* 防止水平滚动 */
+    max-width: 100vw; /* 限制最大宽度 */
+}
+
+/* 隐藏元素 */
+.hidden {
+    display: none !important;
+}
+
+/* 侧边栏样式 */
+.sidebar {
+    width: 280px;
+    background-color: white;
+    border-right: 1px solid #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    transition: width 0.3s ease, opacity 0.3s ease;
+    overflow: hidden;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.03);
+    min-width: 280px; /* 确保最小宽度 */
+}
+
+.sidebar-collapsed {
+    width: 0;
+    min-width: 0; /* 折叠时允许宽度为0 */
+    opacity: 0;
+    visibility: hidden; /* 完全折叠时隐藏 */
+}
+
+.sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    background-color: #f5f5f5;
+    border-bottom: 1px solid #eaeaea;
+}
+
+.new-chat-btn {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background-color 0.2s;
+    font-weight: 500;
+}
+
+.new-chat-btn:hover {
+    background-color: #45a049;
+}
+
+.chat-history {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+}
+
+.chat-item {
+    padding: 14px;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #f9f9f9;
+    border-left: 3px solid transparent;
+}
+
+.chat-item:hover {
+    background-color: #f0f0f0;
+}
+
+.chat-item.active {
+    background-color: #e8f5e9;
+    border-left: 3px solid #4CAF50;
+}
+
+.chat-item-title {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.95em;
+}
+
+.delete-chat {
+    visibility: hidden;
+    color: #999;
+    margin-left: 10px;
+    font-size: 1em;
+    transition: color 0.2s;
+}
+
+.chat-item:hover .delete-chat {
+    visibility: visible;
+}
+
+.delete-chat:hover {
+    color: #d32f2f;
+}
+
+/* 侧边栏切换按钮 */
+.toggle-sidebar {
+    position: absolute;
+    left: 290px;
+    top: 60px;
+    background-color: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10;
+    transition: left 0.3s ease, background-color 0.2s;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+    color: #666;
+}
+
+.toggle-sidebar:hover {
+    background-color: #f5f5f5;
+}
+
+.toggle-sidebar.collapsed {
+    left: 10px;
+}
+
+/* 聊天区域样式 */
+.chat-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background-color: white;
+    width: 0; /* 允许自适应宽度 */
+    min-width: 0; /* 确保可以缩小 */
+    overflow-x: hidden; /* 防止水平溢出 */
+}
+
+.chat-header {
+    background-color: #4CAF50;
+    color: white;
+    padding: 15px;
+    text-align: center;
+    font-size: 1.2em;
+    font-weight: 500;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden; /* 防止水平滚动 */
+    padding: 20px;
+    background-color: #f8f9fa;
+    width: 100%; /* 确保宽度不超出容器 */
+    box-sizing: border-box; /* 包含padding在宽度内 */
+}
+
+.message {
+    margin-bottom: 18px;
+    padding: 14px 18px;
+    border-radius: 10px;
+    max-width: 70%;
+    word-wrap: break-word;
+    line-height: 1.5;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    position: relative;
+    animation: fadeIn 0.3s ease;
+    overflow-x: hidden; /* 防止内容溢出 */
+    display: flex; /* 使用flex布局 */
+    flex-direction: column; /* 纵向排列元素 */
+}
+
+/* 消息内容容器 - 用于正确显示Markdown */
+.message-content {
+    text-align: left; /* 确保所有内容都左对齐 */
+    overflow-wrap: break-word; /* 确保长单词折行 */
+    width: 100%; /* 使用全宽 */
+}
+
+/* 时间戳样式 */
+.message-timestamp {
+    font-size: 0.75em;
+    color: #888;
+    margin-top: 5px;
+    padding: 0 5px;
+}
+
+.user-message .message-timestamp {
+    text-align: right;
+}
+
+.bot-message .message-timestamp {
+    text-align: left;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.user-message {
+    background-color: #e8f5e9;
+    margin-left: auto;
+    border-bottom-right-radius: 3px;
+    color: #333;
+}
+
+.user-message .message-content {
+    text-align: right; /* 用户消息内容右对齐 */
+}
+
+.user-message::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    right: -10px;
+    width: 0;
+    height: 0;
+    border: 10px solid transparent;
+    border-left-color: #e8f5e9;
+    border-right: 0;
+    border-bottom: 0;
+    margin-right: 0;
+}
+
+.bot-message {
+    background-color: white;
+    margin-right: auto;
+    border-left: 4px solid #4CAF50;
+    border-bottom-left-radius: 3px;
+}
+
+.bot-message::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: -10px;
+    width: 0;
+    height: 0;
+    border: 10px solid transparent;
+    border-right-color: white;
+    border-left: 0;
+    border-bottom: 0;
+    margin-left: 0;
+}
+
+/* Markdown 格式样式 */
+.message-content strong {
+    font-weight: bold;
+}
+
+.message-content em {
+    font-style: italic;
+}
+
+.message-content a {
+    color: #0366d6;
+    text-decoration: underline;
+}
+
+.message-content code {
+    background-color: rgba(27, 31, 35, 0.05);
+    border-radius: 3px;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 85%;
+    margin: 0;
+    padding: 0.2em 0.4em;
+    white-space: pre-wrap; /* 保留空格但允许换行 */
+}
+
+.message-content pre {
+    background-color: rgba(27, 31, 35, 0.05);
+    border-radius: 3px;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 85%;
+    line-height: 1.45;
+    overflow: auto;
+    padding: 16px;
+    margin: 8px 0;
+    max-width: 100%; /* 确保不超出消息框 */
+}
+
+.message-content pre code {
+    background-color: transparent;
+    padding: 0;
+    white-space: pre; /* 保留代码块中的格式 */
+}
+
+/* 列表样式 */
+.message-content ul, .message-content ol {
+    padding-left: 20px;
+    margin: 8px 0;
+}
+
+.message-content li {
+    margin-bottom: 4px;
+}
+
+/* 表格样式 */
+.message-content table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 10px 0;
+}
+
+.message-content th, .message-content td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+.message-content th {
+    background-color: #f2f2f2;
+}
+
+.typing-indicator {
+    display: none;
+    margin-bottom: 15px;
+    padding: 12px 15px;
+    border-radius: 10px;
+    background-color: white;
+    margin-right: auto;
+    border-left: 4px solid #4CAF50;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.typing-indicator span {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background-color: #4CAF50;
+    border-radius: 50%;
+    margin-right: 3px;
+    animation: typing 1s infinite;
+}
+
+.typing-indicator span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.typing-indicator span:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes typing {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+}
+
+.stream-toggle {
+    display: flex;
+    justify-content: flex-end;
+    padding: 10px 20px;
+    background-color: #f8f9fa;
+    border-top: 1px solid #eee;
+    font-size: 0.9em;
+    color: #666;
+}
+
+.stream-toggle label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.2s;
+}
+
+.stream-toggle label:hover {
+    color: #4CAF50;
+}
+
+.stream-toggle input {
+    margin-right: 6px;
+    cursor: pointer;
+}
+
+.chat-input {
+    display: flex;
+    padding: 15px 20px;
+    background-color: white;
+    border-top: 1px solid #eee;
+}
+
+.chat-input textarea {
+    flex: 1;
+    padding: 14px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    resize: none;
+    height: 40px;
+    transition: all 0.2s ease;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+    font-size: 0.95em;
+}
+
+.chat-input textarea:focus {
+    border-color: #4CAF50;
+    outline: none;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05), 0 0 0 2px rgba(76, 175, 80, 0.1);
+}
+
+.chat-input button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 0 22px;
+    border-radius: 8px;
+    margin-left: 12px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    font-weight: 500;
+    font-size: 0.95em;
+}
+
+.chat-input button:hover {
+    background-color: #45a049;
+}
+
+.chat-input button:disabled {
+    background-color: #a5d6a7;
+    cursor: not-allowed;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .main-container {
+        flex-direction: column;
+    }
+    
+    .sidebar {
+        position: absolute;
+        height: calc(100vh - 50px);
+        z-index: 100;
+        width: 85%;
+        max-width: 320px;
+    }
+    
+    .chat-messages {
+        padding: 15px;
+    }
+    
+    .message {
+        max-width: 90%;
+    }
+    
+    .toggle-sidebar.collapsed {
+        left: 10px;
+        background-color: #4CAF50;
+        color: white;
+    }
+    
+    .chat-input {
+        padding: 10px 15px;
+    }
+    
+    .chat-input textarea {
+        padding: 12px;
+    }
+    
+    .chat-input button {
+        padding: 0 15px;
+    }
+}
+
+/* 模态窗口样式 */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.4);
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 10% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 500px;
+    max-width: 90%;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close:hover,
+.close:focus {
+    color: black;
+    text-decoration: none;
+}
+
+.ai-types {
+    margin: 20px 0;
+}
+
+.ai-type-option {
+    margin-bottom: 15px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    transition: all 0.3s;
+}
+
+.ai-type-option:hover {
+    background-color: #f9f9f9;
+}
+
+.ai-type-option input[type="radio"] {
+    margin-right: 10px;
+}
+
+.ai-type-option label {
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.ai-type-option p {
+    margin: 5px 0 0 25px;
+    color: #666;
+    font-size: 0.9em;
+}
+
+.modal-buttons {
+    text-align: right;
+    margin-top: 20px;
+}
+
+.modal-buttons button {
+    padding: 8px 16px;
+    margin-left: 10px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+#confirmAIType {
+    background-color: #4caf50;
+    color: white;
+}
+
+#cancelAIType {
+    background-color: #f44336;
+    color: white;
+}
+
+/* 文件上传区域样式 */
+.file-upload-area {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 12px 20px;
+    background-color: #f8f9fa;
+    border-top: 1px solid #eee;
+    transition: all 0.3s ease;
+}
+
+.file-upload-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background-color: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.95em;
+    color: #555;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.file-upload-button:hover {
+    border-color: #4CAF50;
+    background-color: #f9f9f9;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 0 0 2px rgba(76, 175, 80, 0.1);
+}
+
+.file-upload-button svg {
+    fill: #4CAF50;
+}
+
+.file-upload-input {
+    display: none;
+}
+
+.file-upload-info {
+    margin-left: 15px;
+    font-size: 0.85em;
+    color: #666;
+    flex: 1;
+}
+
+.uploaded-files {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+    width: 100%;
+}
+
+.uploaded-file {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background-color: #f0f5f0;
+    border-radius: 20px;
+    padding: 6px 12px;
+    font-size: 0.85em;
+    border-left: 3px solid #4CAF50;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    max-width: 250px;
+    overflow: hidden;
+}
+
+.uploaded-file-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 180px;
+}
+
+.uploaded-file-size {
+    font-size: 0.85em;
+    color: #777;
+    white-space: nowrap;
+}
+
+.remove-file {
+    cursor: pointer;
+    color: #999;
+    font-weight: bold;
+    font-size: 1.2em;
+    line-height: 1;
+    margin-left: auto;
+    transition: color 0.2s;
+}
+
+.remove-file:hover {
+    color: #d32f2f;
+}
+
+/* 文件消息样式 */
+.file-message {
+    background-color: white;
+    margin-right: auto;
+    border-radius: 10px;
+    padding: 12px 16px;
+    max-width: 70%;
+    border-left: 4px solid #4CAF50;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.file-message-title {
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 8px;
+}
+
+.file-message-items {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.file-message-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: #f8f9fa;
+    padding: 8px 12px;
+    border-radius: 6px;
+}
+
+.file-icon {
+    color: #4CAF50;
+    font-size: 1.5em;
+}
+
+.file-info {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+}
+
+.file-name {
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.file-size {
+    font-size: 0.8em;
+    color: #777;
+}
+
+/* 添加文件上传进度条 */
+.upload-progress {
+    width: 100%;
+    height: 4px;
+    background-color: #e0e0e0;
+    border-radius: 2px;
+    margin-top: 5px;
+    overflow: hidden;
+}
+
+.upload-progress-bar {
+    height: 100%;
+    background-color: #4CAF50;
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .file-upload-area {
+        padding: 10px 15px;
+    }
+    
+    .file-upload-info {
+        margin-left: 8px;
+        font-size: 0.8em;
+    }
+    
+    .uploaded-file {
+        max-width: 200px;
+    }
+    
+    .uploaded-file-name {
+        max-width: 120px;
+    }
+    
+    .file-message {
+        max-width: 90%;
+    }
+}
+
+/* 通知容器样式 */
+.notification-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* 通知样式 */
+.notification {
+    padding: 12px 20px;
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    color: white;
+    max-width: 300px;
+    animation: slide-in 0.3s ease-out;
+}
+
+/* 通知类型样式 */
+.notification.info {
+    background-color: #2196F3;
+}
+
+.notification.success {
+    background-color: #4CAF50;
+}
+
+.notification.warning {
+    background-color: #FF9800;
+}
+
+.notification.error {
+    background-color: #F44336;
+}
+
+/* 通知动画 */
+@keyframes slide-in {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.notification.fade-out {
+    animation: fade-out 0.5s ease-out forwards;
+}
+
+@keyframes fade-out {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}

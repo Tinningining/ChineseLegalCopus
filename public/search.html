@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>法律语料库检索系统</title>
+    <link rel="stylesheet" href="search.css">
+    <script>
+        function search() {
+            const query = document.getElementById('query').value;
+            if (query.trim() === '') {
+                alert('请输入要搜索的词语');
+                return;
+            }
+            
+            // 获取选中的搜索类型
+            const searchType = document.querySelector('input[name="searchType"]:checked').value;
+            
+            // 跳转到结果页面并将搜索词和搜索类型作为查询参数传递
+            window.location.href = `results.html?query=${encodeURIComponent(query)}&type=${searchType}`;
+        }
+    </script>
+</head>
+<body>
+    <!-- 导航栏 -->
+    <div class="navbar">
+        <a href="index.html">首页</a>
+        <a href="search.html">搜索</a>
+        <a href="laws.html">法律文献</a>
+        <a href="login.html">AI助理</a>
+    </div>
+
+    <div class="centered-container">
+        <h1>法律语料库检索系统</h1>
+        <div class="search-box">
+            <input type="text" id="query" placeholder="输入要检索的内容">
+            <div class="search-options">
+                <label>
+                    <input type="radio" name="searchType" value="word" checked> 短语检索
+                </label>
+                <label>
+                    <input type="radio" name="searchType" value="dependency"> 依存关系检索
+                </label>
+            </div>
+            <button onclick="search()">搜索</button>
+        </div>
+    </div>
+</body>
+</html>

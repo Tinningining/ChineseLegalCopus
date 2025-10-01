@@ -1,0 +1,108 @@
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f4f4f4;
+    color: #333;
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 导航栏样式 */
+.navbar {
+    width: 100%;
+    background-color: #4CAF50;
+    position: fixed; /* 固定在页面顶部 */
+    top: 0;
+    left: 0;
+    z-index: 1000; /* 确保在最上层 */
+    display: flex;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* 添加阴影以区分导航栏 */
+}
+
+.navbar a {
+    display: block;
+    color: white;
+    text-align: center;
+    padding: 14px 20px;
+    text-decoration: none;
+    font-size: 16px;
+}
+
+.navbar a:hover {
+    background-color: #45a049;
+}
+
+/* 让内容垂直和水平居中 */
+.centered-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    flex: 1; /* 占据剩余全部高度 */
+}
+
+/* 标题样式 */
+h1 {
+    color: #4CAF50;
+    margin-bottom: 20px;
+    transform: translateY(-50px); /* 上移 50 像素 */
+}
+
+/* 搜索框样式 */
+.search-box {
+    transform: translateY(-50px); /* 上移 50 像素 */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* 输入框样式 */
+input[type="text"] {
+    width: 300px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 16px;
+    margin-bottom: 10px;
+    transition: border-color 0.3s ease;
+}
+
+input[type="text"]:focus {
+    border-color: #4CAF50;
+    outline: none;
+}
+
+/* 搜索选项样式 */
+.search-options {
+    display: flex;
+    margin-bottom: 15px;
+}
+
+.search-options label {
+    margin: 0 10px;
+    cursor: pointer;
+}
+
+.search-options input[type="radio"] {
+    margin-right: 5px;
+    cursor: pointer;
+}
+
+/* 按钮样式 */
+button {
+    padding: 10px 20px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+button:hover {
+    background-color: #45a049;
+}

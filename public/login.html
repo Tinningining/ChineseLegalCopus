@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录/注册 - 法律语料库检索系统</title>
+    <link rel="stylesheet" href="login.css">
+    <style>
+    </style>
+</head>
+<body>
+    <!-- 导航栏 -->
+    <div class="navbar">
+        <a href="index.html">首页</a>
+        <a href="search.html">搜索</a>
+        <a href="laws.html">法律文献</a>
+        <a href="login.html">AI助理</a>
+    </div>
+
+    <!-- 认证容器 -->
+    <div class="auth-container" id="authContainer">
+        <div class="auth-header">
+            <h2 id="authTitle">登录</h2>
+        </div>
+        <div class="auth-error" id="authError"></div>
+        <form class="auth-form" id="authForm">
+            <div class="form-group">
+                <label for="username">用户名</label>
+                <input type="text" id="authUsername" name="username" required>
+            </div>
+            <div class="form-group" id="emailGroup" style="display: none;">
+                <label for="email">邮箱 (选填)</label>
+                <input type="email" id="authEmail" name="email">
+            </div>
+            <div class="form-group">
+                <label for="password">密码</label>
+                <input type="password" id="authPassword" name="password" required>
+            </div>
+            <button type="submit" class="auth-button" id="authButton">登录</button>
+        </form>
+        <div class="auth-switch">
+            <span id="authSwitchText">还没有账号？</span>
+            <a id="authSwitchLink">注册</a>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        // DOM 元素
+        const authContainer = document.getElementById('authContainer');
+        const authForm = document.getElementById('authForm');
+        const authTitle = document.getElementById('authTitle');
+        const authButton = document.getElementById('authButton');
+        const authSwitchLink = document.getElementById('authSwitchLink');
+        const authSwitchText = document.getElementById('authSwitchText');
+        const authError = document.getElementById('authError');
+        const authUsername = document.getElementById('authUsername');
+        const authPassword = document.getElementById('authPassword');
+        const authEmail = document.getElementById('authEmail');
+        const emailGroup = document.getElementById('emailGroup');
+        
+        // 状态变量
+        let isRegistering = false;
+        
+        // 初始化应用
+        function initApp() {
+            // 检查是否已登录
+            const savedToken = localStorage.getItem('authToken');
+            if (savedToken) {
+                // 使用保存的token进行认证检查
+                checkAuthToken(savedToken);
+            }
+            
+            setupEventListeners();
+        }
+        
+        // 检查认证token是否有效
+        async function checkAuthToken(token) {
+            try {
+                const checkResponse = await fetch('/api/auth/check?token=' + token, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    }
+                });
+                
+                if (checkResponse.ok) {
+                    // 如果token有效，重定向到聊天页面
+                    window.location.href = 'agent.html';
+                    return true;
+                } else {
+                    // 如果token无效，清除它
+                    localStorage.removeItem('authToken');
+                    return false;
+                }
+            } catch (error) {
+                console.error('认证检查错误:', error);
+                localStorage.removeItem('authToken');
+                return false;
+            }
+        }
+        
+        // 设置事件监听器
+        function setupEventListeners() {
+            // 认证表单切换
+            authSwitchLink.addEventListener('click', toggleAuthForm);
+            
+            // 认证表单提交
+            authForm.addEventListener('submit', handleAuthSubmit);
+        }
+        
+        // 切换认证表单（登录/注册）
+        function toggleAuthForm() {
+            isRegistering = !isRegistering;
+            
+            if (isRegistering) {
+                authTitle.textContent = '注册';
+                authButton.textContent = '注册';
+                authSwitchText.textContent = '已有账号？';
+                authSwitchLink.textContent = '登录';
+                emailGroup.style.display = 'block';
+            } else {
+                authTitle.textContent = '登录';
+                authButton.textContent = '登录';
+                authSwitchText.textContent = '还没有账号？';
+                authSwitchLink.textContent = '注册';
+                emailGroup.style.display = 'none';
+            }
+            
+            // 清除错误消息和表单
+            authError.textContent = '';
+            authForm.reset();
+        }
+        
+        // 处理认证表单提交
+        async function handleAuthSubmit(event) {
+            event.preventDefault();
+            
+            // 获取表单数据
+            const username = authUsername.value.trim();
+            const password = authPassword.value.trim();
+            const email = authEmail.value.trim();
+            
+            // 验证表单
+            if (!username || !password) {
+                authError.textContent = '用户名和密码为必填项';
+                return;
+            }
+            
+            try {
+                const endpoint = isRegistering ? '/api/auth/register' : '/api/auth/login';
+                const userData = isRegistering
+                    ? { username, password, email }
+                    : { username, password };
+                
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(userData),
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    authError.textContent = data.error || '认证失败';
+                    return;
+                }
+                
+                // 保存token和用户信息到localStorage
+                if (data.token) {
+                    localStorage.setItem('authToken', data.token);
+                }
+                if (data.user) {
+                    localStorage.setItem('currentUser', JSON.stringify(data.user));
+                }
+                
+                // 登录成功，跳转到聊天页面
+                window.location.href = 'agent.html';
+            } catch (error) {
+                console.error('认证错误:', error);
+                authError.textContent = '服务器错误，请稍后再试';
+            }
+        }
+        
+        // 初始化应用
+        initApp();
+    </script>
+</body>
+</html>

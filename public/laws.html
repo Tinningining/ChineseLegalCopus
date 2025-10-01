@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>法律语料库检索系统</title>
+    <link rel="stylesheet" href="laws.css">
+</head>
+<body>
+    <div class="navbar">
+        <a href="index.html">首页</a>
+        <a href="search.html">搜索</a>
+        <a href="laws.html">法律文献</a>
+        <a href="login.html">AI助理</a>
+    </div>
+    <div class="content">
+        <div class="filters">
+            <label for="category">法律类别:</label>
+            <select id="category" onchange="loadDocuments()">
+                <option value="">所有</option>
+                <option value="修正案">修正案</option>
+                <option value="刑法">刑法</option>
+                <option value="宪法">宪法</option>
+                <option value="宪法相关法律">宪法相关法律</option>
+                <option value="民法商法">民法商法</option>
+                <option value="社会法">社会法</option>
+                <option value="经济法">经济法</option>
+                <option value="行政法">行政法</option>
+                <option value="诉讼法与非诉讼程序法">诉讼法与非诉讼程序法</option>
+            </select>
+            <label for="name">法律名称:</label>
+            <input type="text" id="name" placeholder="输入文献名称" onkeyup="filterDocuments()">
+            <div id="filters"></div>
+        </div>
+
+        <div id="documents" class="document-list"></div>
+    </div>
+
+    <script>
+        let allDocuments = [];
+
+        function loadDocuments() {
+            const category = document.getElementById('category').value;
+            fetch(`/list-files?category=${category}`)
+                .then(response => response.json())
+                .then(data => {
+                    allDocuments = data.files;
+                    displayDocuments(allDocuments);
+                })
+                .catch(err => console.error('获取文件列表时出错:', err));
+        }
+
+        function displayDocuments(docList) {
+            const filtersDiv = document.getElementById('filters');
+            filtersDiv.innerHTML = ''; 
+            
+            if (docList.length === 0) {
+                filtersDiv.innerHTML = '<p>未找到匹配的法律文献。</p>';
+            } else {
+                docList.forEach(doc => {
+                    const docDiv = document.createElement('div');
+                    docDiv.className = 'document';
+                    docDiv.innerHTML = `<h3>${doc}</h3>`;
+                    
+                    // 添加点击事件，改变 URL 和获取文档内容
+                    docDiv.onclick = () => {
+                        // 获取文档内容
+                        fetchDocumentContent(doc);
+                    };
+
+                    filtersDiv.appendChild(docDiv);
+                });
+            }
+        }
+
+        function filterDocuments() {
+            const nameFilter = document.getElementById('name').value.toLowerCase();
+            const filtered = allDocuments.filter(doc => doc.toLowerCase().includes(nameFilter));
+            displayDocuments(filtered);
+        }
+
+        function fetchDocumentContent(fileName) {
+            const category = document.getElementById('category').value;
+            
+            fetch('/law-content', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ category, fileName })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // 将内容放入 div 元素中
+                const contentDiv = document.getElementById('documents');
+                contentDiv.innerHTML = `<div style="white-space: pre-wrap; font-family: Arial, sans-serif; font-size: 16px;">${data.content}</div>`;
+            })
+            .catch(err => console.error('获取文件内容时出错:', err));
+        }
+
+        // 获取 URL 参数并填充输入框，并初始化文档列表
+        window.onload = () => {
+            const params = new URLSearchParams(window.location.search);
+            const fileName = params.get('fileName');
+            const category = params.get('category');
+
+            if (fileName) {
+                document.getElementById('name').value = decodeURIComponent(fileName);
+            }
+            
+            // 页面加载时自动调用loadDocuments()加载文档列表
+            loadDocuments();
+        }
+    </script>
+</body>
+</html>

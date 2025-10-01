@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>法律语料库检索系统</title>
+    <link rel="stylesheet" href="agent.css">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <div class="navbar">
+        <a href="index.html">首页</a>
+        <a href="search.html">搜索</a>
+        <a href="laws.html">法律文献</a>
+        <a href="agent.html" class="active">AI助理</a>
+        <div class="user-info" id="userInfo">
+            <span class="username" id="username"></span>
+            <button class="logout-btn" id="logoutBtn">登出</button>
+        </div>
+    </div>
+
+    <!-- 认证容器 -->
+    <div class="auth-container" id="authContainer">
+        <div class="auth-header">
+            <h2 id="authTitle">登录</h2>
+        </div>
+        <div class="auth-error" id="authError"></div>
+        <form class="auth-form" id="authForm">
+            <div class="form-group">
+                <label for="username">用户名</label>
+                <input type="text" id="authUsername" name="username" required>
+            </div>
+            <div class="form-group" id="emailGroup" style="display: none;">
+                <label for="email">邮箱 (选填)</label>
+                <input type="email" id="authEmail" name="email">
+            </div>
+            <div class="form-group">
+                <label for="password">密码</label>
+                <input type="password" id="authPassword" name="password" required>
+            </div>
+            <button type="submit" class="auth-button" id="authButton">登录</button>
+        </form>
+        <div class="auth-switch">
+            <span id="authSwitchText">还没有账号？</span>
+            <a id="authSwitchLink">注册</a>
+        </div>
+    </div>
+
+    <!-- 主应用容器 -->
+    <div class="main-container hidden" id="mainContainer">
+        <!-- 左侧历史记录栏 -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h3 style="margin: 0;">历史对话</h3>
+                <button class="new-chat-btn" id="newChatBtn">新对话</button>
+            </div>
+            <div class="chat-history" id="chatHistory">
+                <!-- 历史对话列表将在这里动态生成 -->
+            </div>
+        </div>
+        
+        <!-- 侧边栏切换按钮 -->
+        <div class="toggle-sidebar" id="toggleSidebar" title="显示/隐藏聊天历史">
+            ≡
+        </div>
+
+        <!-- 主聊天区域 -->
+        <div class="chat-container">
+            <div class="chat-header">
+                法律智能问答系统
+            </div>
+            <div class="chat-messages" id="chatMessages">
+                <!-- 消息将被动态添加 -->
+                <div class="typing-indicator" id="typingIndicator">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+            <div class="stream-toggle">
+                <label title="实时显示AI回复过程">
+                    <input type="checkbox" id="streamToggle" checked>
+                    启用流式响应
+                </label>
+            </div>
+            <div class="chat-input">
+                <textarea id="userInput" placeholder="请输入您的法律问题..." onkeypress="handleKeyPress(event)"></textarea>
+                <button id="sendButton">发送</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        // DOM 元素
+        // 认证相关
+        const authContainer = document.getElementById('authContainer');
+        const mainContainer = document.getElementById('mainContainer');
+        const authForm = document.getElementById('authForm');
+        const authTitle = document.getElementById('authTitle');
+        const authButton = document.getElementById('authButton');
+        const authSwitchLink = document.getElementById('authSwitchLink');
+        const authSwitchText = document.getElementById('authSwitchText');
+        const authError = document.getElementById('authError');
+        const authUsername = document.getElementById('authUsername');
+        const authPassword = document.getElementById('authPassword');
+        const authEmail = document.getElementById('authEmail');
+        const emailGroup = document.getElementById('emailGroup');
+        const userInfo = document.getElementById('userInfo');
+        const usernameDisplay = document.getElementById('username');
+        const logoutBtn = document.getElementById('logoutBtn');
+        
+        // 聊天相关
+        const sidebar = document.getElementById('sidebar');
+        const toggleSidebar = document.getElementById('toggleSidebar');
+        const chatHistory = document.getElementById('chatHistory');
+        const newChatBtn = document.getElementById('newChatBtn');
+        const chatMessages = document.getElementById('chatMessages');
+        const userInput = document.getElementById('userInput');
+        const sendButton = document.getElementById('sendButton');
+        const streamToggle = document.getElementById('streamToggle');
+        const typingIndicator = document.getElementById('typingIndicator');
+        
+        // 状态变量
+        let isRegistering = false;
+        let activeSessionId = null;
+        let currentUser = null;
+        
+        // 初始化应用
+        async function initApp() {
+            // 检查是否已登录
+            try {
+                const response = await fetch('/api/user', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'include' // 确保包含cookies
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    currentUser = data.user;
+                    
+                    // 存储token到localStorage用于后备方案
+                    if (data.token) {
+                        localStorage.setItem('authToken', data.token);
+                    }
+                    
+                    showMainApp();
+                    loadChatSessions();
+                } else {
+                    // 尝试从localStorage获取token
+                    const savedToken = localStorage.getItem('authToken');
+                    if (savedToken) {
+                        // 使用保存的token进行认证检查
+                        const checkResponse = await fetch('/api/auth/check?token=' + savedToken, {
+                            method: 'GET',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': 'Bearer ' + savedToken
+                            }
+                        });
+                        
+                        if (checkResponse.ok) {
+                            const userData = await checkResponse.json();
+                            currentUser = userData.user;
+                            showMainApp();
+                            loadChatSessions();
+                            return;
+                        } else {
+                            // 如果token无效，清除它
+                            localStorage.removeItem('authToken');
+                        }
+                    }
+                    
+                    showAuthForm();
+                }
+            } catch (error) {
+                console.error('认证检查错误:', error);
+                showAuthForm();
+            }
+            
+            setupEventListeners();
+        }
+        
+        // 设置事件监听器
+        function setupEventListeners() {
+            // 认证表单切换
+            authSwitchLink.addEventListener('click', toggleAuthForm);
+            
+            // 认证表单提交
+            authForm.addEventListener('submit', handleAuthSubmit);
+            
+            // 登出按钮
+            logoutBtn.addEventListener('click', handleLogout);
+            
+            // 侧边栏切换
+            toggleSidebar.addEventListener('click', () => {
+                sidebar.classList.toggle('sidebar-collapsed');
+                toggleSidebar.classList.toggle('collapsed');
+                
+                // 保存侧边栏状态到本地存储
+                localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('sidebar-collapsed'));
+            });
+            
+            // 新建聊天
+            newChatBtn.addEventListener('click', createNewChat);
+            
+            // 发送消息
+            sendButton.addEventListener('click', function() {
+                if (userInput.value.trim() !== '') {
+                    this.disabled = true;
+                    this.innerHTML = '发送中...';
+                    sendMessage().finally(() => {
+                        this.disabled = false;
+                        this.innerHTML = '发送';
+                    });
+                }
+            });
+            
+            // 自动调整文本区域高度
+            userInput.addEventListener('input', function() {
+                // 重置高度以获取正确的scrollHeight
+                this.style.height = 'auto';
+                
+                // 计算新高度 (有最小和最大限制)
+                const newHeight = Math.min(Math.max(40, this.scrollHeight), 120);
+                this.style.height = newHeight + 'px';
+            });
+        }
+        
+        // 切换认证表单（登录/注册）
+        function toggleAuthForm() {
+            isRegistering = !isRegistering;
+            
+            if (isRegistering) {
+                authTitle.textContent = '注册';
+                authButton.textContent = '注册';
+                authSwitchText.textContent = '已有账号？';
+                authSwitchLink.textContent = '登录';
+                emailGroup.style.display = 'block';
+            } else {
+                authTitle.textContent = '登录';
+                authButton.textContent = '登录';
+                authSwitchText.textContent = '还没有账号？';
+                authSwitchLink.textContent = '注册';
+                emailGroup.style.display = 'none';
+            }
+            
+            // 清除错误消息和表单
+            authError.textContent = '';
+            authForm.reset();
+        }
+        
+        // 处理认证表单提交
+        async function handleAuthSubmit(event) {
+            event.preventDefault();
+            
+            // 获取表单数据
+            const username = authUsername.value.trim();
+            const password = authPassword.value.trim();
+            const email = authEmail.value.trim();
+            
+            // 验证表单
+            if (!username || !password) {
+                authError.textContent = '用户名和密码为必填项';
+                return;
+            }
+            
+            try {
+                const endpoint = isRegistering ? '/api/auth/register' : '/api/auth/login';
+                const userData = isRegistering
+                    ? { username, password, email }
+                    : { username, password };
+                
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(userData),
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    authError.textContent = data.error || '认证失败';
+                    return;
+                }
+                
+                // 保存token到localStorage作为后备
+                if (data.token) {
+                    localStorage.setItem('authToken', data.token);
+                }
+                
+                // 登录成功
+                currentUser = data.user;
+                
+                // 显示主应用
+                showMainApp();
+                
+                // 加载用户聊天会话
+                loadChatSessions();
+            } catch (error) {
+                console.error('认证错误:', error);
+                authError.textContent = '服务器错误，请稍后再试';
+            }
+        }
+        
+        // 处理用户登出
+        async function handleLogout() {
+            try {
+                // 清除localStorage中的token
+                localStorage.removeItem('authToken');
+                
+                await fetch('/api/auth/logout', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                // 重置状态
+                currentUser = null;
+                activeSessionId = null;
+                
+                // 显示登录表单
+                showAuthForm();
+            } catch (error) {
+                console.error('登出错误:', error);
+                alert('登出失败，请稍后再试');
+            }
+        }
+        
+        // 显示认证表单
+        function showAuthForm() {
+            authContainer.classList.remove('hidden');
+            mainContainer.classList.add('hidden');
+            isRegistering = false;
+            authTitle.textContent = '登录';
+            authButton.textContent = '登录';
+            authSwitchText.textContent = '还没有账号？';
+            authSwitchLink.textContent = '注册';
+            emailGroup.style.display = 'none';
+            authForm.reset();
+            authError.textContent = '';
+        }
+        
+        // 显示主应用
+        function showMainApp() {
+            authContainer.classList.add('hidden');
+            mainContainer.classList.remove('hidden');
+            usernameDisplay.textContent = currentUser.username;
+            restoreSidebarState();
+        }
+        
+        // 初始化时恢复侧边栏状态
+        function restoreSidebarState() {
+            const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+            if (isCollapsed) {
+                sidebar.classList.add('sidebar-collapsed');
+                toggleSidebar.classList.add('collapsed');
+            }
+        }
+        
+        // 获取认证头信息
+        function getAuthHeaders() {
+            const token = localStorage.getItem('authToken');
+            const headers = {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            };
+            
+            if (token) {
+                headers['Authorization'] = 'Bearer ' + token;
+            }
+            
+            return headers;
+        }
+        
+        // 加载用户聊天会话
+        async function loadChatSessions() {
+            try {
+                const response = await fetch('/api/chat/sessions', {
+                    method: 'GET',
+                    headers: getAuthHeaders(),
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to load chat sessions');
+                }
+                
+                const data = await response.json();
+                renderChatHistorySidebar(data.sessions);
+                
+                // 如果有会话，加载第一个会话
+                if (data.sessions.length > 0) {
+                    activeSessionId = data.sessions[0].id;
+                    loadChatSession(activeSessionId);
+                } else {
+                    // 如果没有会话，创建一个新会话
+                    await createNewChat();
+                }
+            } catch (error) {
+                console.error('加载会话错误:', error);
+                
+                // 如果认证失败，重新显示登录表单
+                if (error.message && error.message.includes('401')) {
+                    alert('您的登录已过期，请重新登录');
+                    showAuthForm();
+                }
+            }
+        }
+        
+        // 渲染侧边栏的聊天历史
+        function renderChatHistorySidebar(sessions) {
+            chatHistory.innerHTML = '';
+            
+            sessions.forEach(session => {
+                const chatItem = document.createElement('div');
+                chatItem.className = 'chat-item' + (session.id.toString() === activeSessionId ? ' active' : '');
+                chatItem.dataset.id = session.id;
+                
+                const titleSpan = document.createElement('span');
+                titleSpan.className = 'chat-item-title';
+                titleSpan.textContent = session.title || '新对话';
+                
+                const deleteBtn = document.createElement('span');
+                deleteBtn.className = 'delete-chat';
+                deleteBtn.textContent = '×';
+                deleteBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    deleteChat(session.id);
+                };
+                
+                chatItem.appendChild(titleSpan);
+                chatItem.appendChild(deleteBtn);
+                
+                chatItem.addEventListener('click', () => {
+                    switchChat(session.id);
+                });
+                
+                chatHistory.appendChild(chatItem);
+            });
+        }
+        
+        // 创建新的聊天会话
+        async function createNewChat() {
+            try {
+                const response = await fetch('/api/chat/sessions', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ title: '新对话' }),
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to create new chat');
+                }
+                
+                const data = await response.json();
+                
+                // 重新加载会话列表
+                await loadChatSessions();
+                
+                // 切换到新会话
+                switchChat(data.session.id);
+                
+                return data.session;
+            } catch (error) {
+                console.error('创建会话错误:', error);
+                alert('创建新对话失败，请稍后再试');
+                
+                // 如果认证失败，重新显示登录表单
+                if (error.message && error.message.includes('401')) {
+                    alert('您的登录已过期，请重新登录');
+                    showAuthForm();
+                }
+            }
+        }
+        
+        // 切换到指定聊天会话
+        function switchChat(id) {
+            activeSessionId = id.toString();
+            
+            // 更新侧边栏选中状态
+            document.querySelectorAll('.chat-item').forEach(item => {
+                if (item.dataset.id === activeSessionId) {
+                    item.classList.add('active');
+                } else {
+                    item.classList.remove('active');
+                }
+            });
+            
+            // 加载会话消息
+            loadChatSession(activeSessionId);
+        }
+        
+        // 加载指定聊天会话的消息
+        async function loadChatSession(sessionId) {
+            try {
+                const response = await fetch(`/api/chat/sessions/${sessionId}/messages`, {
+                    method: 'GET',
+                    headers: getAuthHeaders(),
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to load chat messages');
+                }
+                
+                const data = await response.json();
+                
+                // 清空聊天区域，但先移除输入指示器
+                if (chatMessages.contains(typingIndicator)) {
+                    chatMessages.removeChild(typingIndicator);
+                }
+                chatMessages.innerHTML = '';
+                
+                // 添加消息历史
+                data.messages.forEach(msg => {
+                    addMessage(msg.content, msg.role);
+                });
+                
+                // 添加输入指示器
+                chatMessages.appendChild(typingIndicator);
+                typingIndicator.style.display = 'none';
+                
+                // 滚动到底部
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            } catch (error) {
+                console.error('加载消息错误:', error);
+                
+                // 如果认证失败，重新显示登录表单
+                if (error.message && error.message.includes('401')) {
+                    alert('您的登录已过期，请重新登录');
+                    showAuthForm();
+                }
+            }
+        }
+        
+        // 删除聊天会话
+        async function deleteChat(id) {
+            if (confirm('确定要删除这个对话吗？')) {
+                try {
+                    const response = await fetch(`/api/chat/sessions/${id}`, {
+                        method: 'DELETE',
+                        headers: getAuthHeaders(),
+                        credentials: 'include'
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Failed to delete chat session');
+                    }
+                    
+                    // 重新加载会话列表
+                    await loadChatSessions();
+                } catch (error) {
+                    console.error('删除会话错误:', error);
+                    alert('删除对话失败，请稍后再试');
+                    
+                    // 如果认证失败，重新显示登录表单
+                    if (error.message && error.message.includes('401')) {
+                        alert('您的登录已过期，请重新登录');
+                        showAuthForm();
+                    }
+                }
+            }
+        }
+        
+        // 更新会话标题
+        async function updateSessionTitle(id, title) {
+            try {
+                const response = await fetch(`/api/chat/sessions/${id}`, {
+                    method: 'PUT',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ title }),
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to update chat title');
+                }
+                
+                // 重新加载会话列表
+                await loadChatSessions();
+            } catch (error) {
+                console.error('更新标题错误:', error);
+                
+                // 如果认证失败，重新显示登录表单
+                if (error.message && error.message.includes('401')) {
+                    alert('您的登录已过期，请重新登录');
+                    showAuthForm();
+                }
+            }
+        }
+        
+        // 发送消息处理函数
+        async function sendMessage() {
+            const message = userInput.value.trim();
+            if (!message || !activeSessionId) return;
+            
+            // 显示用户消息
+            addMessage(message, 'user');
+            userInput.value = '';
+            userInput.style.height = '40px'; // 重置文本区域高度
+            
+            // 显示输入中指示器
+            typingIndicator.style.display = 'block';
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            // 获取当前会话的所有消息用于API请求
+            const allMessages = [];
+            document.querySelectorAll('.user-message, .bot-message').forEach(el => {
+                const role = el.classList.contains('user-message') ? 'user' : 'assistant';
+                const content = el.textContent;
+                allMessages.push({ role, content });
+            });
+            
+            try {
+                // 如果是第一条用户消息，使用它来更新会话标题
+                const userMessages = document.querySelectorAll('.user-message');
+                if (userMessages.length === 1) {
+                    const firstUserMessage = message.substring(0, 20) + (message.length > 20 ? '...' : '');
+                    await updateSessionTitle(activeSessionId, firstUserMessage);
+                }
+                
+                if (streamToggle.checked) {
+                    // 使用流式响应
+                    await handleStreamResponse(allMessages);
+                } else {
+                    // 使用普通响应
+                    await handleStandardResponse(allMessages);
+                }
+            } catch (error) {
+                console.error('请求错误:', error);
+                const errorMessage = '抱歉，发生了错误。请稍后再试。';
+                addMessage(errorMessage, 'bot');
+                
+                // 如果认证失败，重新显示登录表单
+                if (error.message && error.message.includes('401')) {
+                    alert('您的登录已过期，请重新登录');
+                    showAuthForm();
+                }
+            } finally {
+                // 隐藏输入中指示器
+                typingIndicator.style.display = 'none';
+            }
+        }
+        
+        // 处理标准响应
+        async function handleStandardResponse(messages) {
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({
+                    messages,
+                    sessionId: activeSessionId
+                }),
+                credentials: 'include'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            const botMessage = data.message;
+            
+            // 显示机器人消息
+            addMessage(botMessage, 'bot');
+        }
+        
+        // 处理流式响应
+        async function handleStreamResponse(messages) {
+            const response = await fetch('/api/chat/stream', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({
+                    messages,
+                    sessionId: activeSessionId
+                }),
+                credentials: 'include'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            // 创建一个新的消息元素用于流式内容
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message bot-message';
+            
+            // 检查typingIndicator是否在chatMessages内部
+            if (chatMessages.contains(typingIndicator)) {
+                chatMessages.insertBefore(messageElement, typingIndicator);
+            } else {
+                chatMessages.appendChild(messageElement);
+            }
+            
+            // 隐藏输入中指示器
+            typingIndicator.style.display = 'none';
+            
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder("utf-8");
+            let streamContent = '';
+            
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                
+                const chunk = decoder.decode(value, { stream: true });
+                const lines = chunk.split('\n\n');
+                
+                for (const line of lines) {
+                    if (line.startsWith('data:')) {
+                        const data = line.substring(5).trim();
+                        
+                        if (data === '[DONE]') {
+                            break;
+                        }
+                        
+                        try {
+                            const parsedData = JSON.parse(data);
+                            if (parsedData.content) {
+                                streamContent += parsedData.content;
+                                messageElement.textContent = streamContent;
+                                chatMessages.scrollTop = chatMessages.scrollHeight;
+                            }
+                        } catch (error) {
+                            console.error('解析错误:', error);
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 添加消息到聊天窗口
+        function addMessage(content, sender) {
+            const messageElement = document.createElement('div');
+            messageElement.className = `message ${sender === 'user' ? 'user-message' : 'bot-message'}`;
+            
+            // 支持简单的Markdown格式（如粗体、斜体、链接）
+            content = content
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>');
+            
+            // 使用innerHTML来支持格式化文本
+            messageElement.innerHTML = content;
+            
+            // 检查typingIndicator是否在chatMessages内部
+            if (chatMessages.contains(typingIndicator)) {
+                // 确保添加到输入指示器之前
+                chatMessages.insertBefore(messageElement, typingIndicator);
+            } else {
+                // 如果不在，直接添加到聊天消息区域的末尾
+                chatMessages.appendChild(messageElement);
+            }
+            
+            // 平滑滚动到底部
+            chatMessages.scrollTo({
+                top: chatMessages.scrollHeight,
+                behavior: 'smooth'
+            });
+            
+            return messageElement;
+        }
+        
+        // 键盘事件处理
+        function handleKeyPress(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+        
+        // 初始化应用
+        initApp();
+    </script>
+</body>
+</html>

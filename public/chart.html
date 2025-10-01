@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>法律语料库检索系统</title>
+    <link rel="stylesheet" href="chart.css">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <div class="navbar">
+        <a href="index.html">首页</a>
+        <a href="search.html">搜索</a>
+        <a href="laws.html">法律文献</a>
+    </div>
+
+    <!-- 3 -->
+    <div class="section-heading">
+        <div class="wrapper">
+            <div class="word">
+                <h2><strong>全国各地区能源总生产量</strong></h2>
+            </div>
+        </div>
+    </div>&nbsp;&nbsp;选择年份：
+    <select id="yearSelect3" title="选择年份" class="select_box">
+        <option value="2015">2015</option>
+        <option value="2016">2016</option>
+        <option value="2017">2017</option>
+        <option value="2018">2018</option>
+        <option value="2019">2019</option>
+        <option value="2020">2020</option>
+        <option value="2021">2021</option>
+    </select>
+    <svg id="svg3"></svg>
+    <br>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="chart.js"></script>
+
+</body>
+</html>
